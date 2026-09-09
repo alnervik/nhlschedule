@@ -16,7 +16,7 @@ const state = {
 };
 
 /* Poängen väger ihop kolumnerna till ett tal: en match är värd 1, en match på
-   ledig kväll lite mer, en match mot ett tröttkört lag lite mer, och en match
+   en offnight lite mer, en match mot ett tröttkört lag lite mer, och en match
    dagen efter en annan match lite mindre. */
 const WEIGHT = { game: 1, off: 0.25, tired: 0.15, b2b: -0.3 };
 const scoreOf = (r) =>
@@ -123,7 +123,7 @@ function buildTable() {
     if (inRange.has(g.date)) gamesByDay.get(g.date).push(g);
   }
 
-  // En dag utan matcher är ingen ledig kväll — det finns inget att plocka upp.
+  // En dag utan matcher är ingen offnight — det finns inget att plocka upp.
   const offNight = new Map(days.map((d) => {
     const n = gamesByDay.get(d).length;
     return [d, n > 0 && n <= state.offMax];
@@ -158,9 +158,9 @@ function buildTable() {
 /* Kolumnerna till vänster om rutnätet, i ordning. `heat` styr färgskalan:
    warm = mer är bättre (gult), cool = mer är sämre (blått). */
 const STATS = [
-  { key: 'score', label: 'Poäng', title: 'Matcher viktade med lediga kvällar, trötta motståndare och B2B', heat: 'warm', dec: 1 },
+  { key: 'score', label: 'Poäng', title: 'Matcher viktade med offnights, trötta motståndare och B2B', heat: 'warm', dec: 1 },
   { key: 'gp',    label: 'Matcher', title: 'Matcher i perioden', heat: 'warm' },
-  { key: 'off',   label: 'Lediga', title: 'Matcher på lediga kvällar — de som är lättast att få in i laguppställningen', heat: 'warm' },
+  { key: 'off',   label: 'Offnights', title: 'Matcher på offnights — de som är lättast att få in i laguppställningen', heat: 'warm' },
   { key: 'b2b',   label: 'B2B', title: 'Matcher laget spelar dagen efter en annan match', heat: 'cool' },
   { key: 'tired', label: 'Trötta', title: 'Matcher mot ett lag som spelade dagen innan', heat: 'warm' },
 ];
@@ -209,7 +209,7 @@ function renderReadout(t, visible) {
   $('#readout').innerHTML =
     `<b>${t.label}</b> · ${fmtLong.format(toDate(t.start))} – ${fmtLong.format(toDate(t.end))} · `
     + `${t.days.length} ${t.days.length === 1 ? 'dag' : 'dagar'} · ${total} matcher · ${visible.length} lag i listan<br>`
-    + `<b>${offDays.length}</b> lediga kvällar (≤ ${state.offMax} matcher): ${offText}`;
+    + `<b>${offDays.length}</b> offnights (≤ ${state.offMax} matcher): ${offText}`;
 }
 
 function renderHead(t) {
