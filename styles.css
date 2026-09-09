@@ -1,0 +1,338 @@
+/* Palett hämtad från rinkens markeringar: is, blå linje, röd linje, sarg. */
+:root {
+  --ice:      #e9eef3;
+  --board:    #ffffff;
+  --ink:      #101820;
+  --ink-2:    #5d6b78;
+  --ink-3:    #8794a1;
+  --rule:     #d0d9e2;
+  --rule-2:   #e3e9ef;
+  --blue:     #1d5c8f;
+  --blue-pale:#dceaf5;
+  --red:      #b4262b;
+  --off:      #fdf3e3;
+  --off-line: #e0a33c;
+  --pin:      #fff8d6;
+  --radius:   3px;
+  --pad:      clamp(12px, 3vw, 28px);
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--ice);
+  color: var(--ink);
+  font: 400 15px/1.5 Barlow, system-ui, sans-serif;
+}
+
+code {
+  font-size: .92em;
+  background: var(--rule-2);
+  padding: 1px 5px;
+  border-radius: var(--radius);
+}
+
+/* ── Topplist ─────────────────────────────── */
+.bar {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 14px var(--pad);
+  background: var(--board);
+  border-bottom: 2px solid var(--ink);
+}
+
+.bar-id { display: flex; align-items: baseline; gap: 10px; }
+
+.bar h1 {
+  margin: 0;
+  font: 700 22px/1 'Barlow Semi Condensed', sans-serif;
+  letter-spacing: .01em;
+}
+
+.season {
+  font: 500 15px/1 'Barlow Semi Condensed', sans-serif;
+  color: var(--ink-2);
+  padding-left: 10px;
+  border-left: 2px solid var(--red);
+}
+
+.tabs { display: flex; gap: 2px; }
+
+.tab {
+  font: 500 14px/1 Barlow, sans-serif;
+  color: var(--ink-2);
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.tab:hover { color: var(--ink); }
+.tab.is-on { color: var(--ink); border-bottom-color: var(--red); }
+
+.stamp {
+  margin: 0 0 0 auto;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+main { padding: var(--pad); }
+
+.lede {
+  max-width: 62ch;
+  margin: 0 0 16px;
+  color: var(--ink-2);
+}
+
+/* ── Kontroller ───────────────────────────── */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 18px;
+  margin-bottom: 14px;
+}
+
+.field { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.field > span { color: var(--ink-2); }
+.field > em { color: var(--ink-3); font-style: normal; font-size: 13px; }
+
+.field select,
+.field input {
+  font: 500 14px Barlow, sans-serif;
+  color: var(--ink);
+  background: var(--board);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 5px 7px;
+}
+
+.field input[type="number"] { width: 56px; }
+.field-wide select { min-width: 230px; }
+
+:is(select, input, button):focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+
+button { font: 500 14px Barlow, sans-serif; cursor: pointer; border-radius: var(--radius); }
+
+.solid {
+  background: var(--blue);
+  color: #fff;
+  border: 1px solid var(--blue);
+  padding: 7px 14px;
+}
+
+.solid:hover { background: #17496f; }
+
+.ghost {
+  background: var(--board);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  padding: 7px 12px;
+}
+
+.ghost:hover { border-color: var(--ink-3); }
+
+.readout {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--ink-2);
+  min-height: 1.5em;
+}
+
+.readout b { color: var(--ink); font-weight: 600; }
+.err { color: var(--red); }
+
+/* ── Rutnätet ─────────────────────────────── */
+.grid-wrap {
+  overflow: auto;
+  background: var(--board);
+  border: 1px solid var(--rule);
+  max-height: 78vh;
+}
+
+table { border-collapse: separate; border-spacing: 0; width: 100%; }
+
+.grid {
+  font-family: 'Barlow Semi Condensed', sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.grid th, .grid td {
+  border-bottom: 1px solid var(--rule-2);
+  border-right: 1px solid var(--rule-2);
+  padding: 0;
+}
+
+.grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--board);
+  border-bottom: 2px solid var(--ink);
+  padding: 7px 8px;
+  font-weight: 600;
+  font-size: 14px;
+  text-align: center;
+  vertical-align: bottom;
+}
+
+.grid .day-name { display: block; font-weight: 600; }
+.grid .day-date { display: block; font-weight: 400; font-size: 13px; color: var(--ink-2); }
+.grid .day-load { display: block; font-weight: 500; font-size: 12px; color: var(--ink-3); margin-top: 3px; }
+
+.grid th.is-off { background: var(--off); }
+.grid th.is-off .day-load { color: #96660f; }
+
+.grid td.is-off { background: var(--off); }
+
+.grid th.col-team,
+.grid td.col-team {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--board);
+  text-align: left;
+  border-right: 1px solid var(--rule);
+}
+
+.grid thead th.col-team { z-index: 4; }
+
+.grid td.col-team { padding: 4px 10px 4px 8px; }
+
+.grid tbody tr.is-pinned td { background: var(--pin); }
+.grid tbody tr.is-pinned td.col-team { background: var(--pin); }
+.grid tbody tr:hover td { background: #f4f7fa; }
+.grid tbody tr:hover td.col-team { background: #f4f7fa; }
+
+.team-btn {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  background: none;
+  border: 0;
+  padding: 2px 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+
+.team-abv { font-weight: 700; font-size: 15px; letter-spacing: .02em; }
+.team-name { color: var(--ink-2); font-size: 13px; }
+
+.cell { padding: 3px 5px; text-align: center; }
+
+.chip {
+  display: inline-block;
+  min-width: 46px;
+  padding: 3px 6px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+}
+
+.chip-home { background: var(--blue-pale); color: #123f63; border-color: #bcd8ea; }
+.chip-away { background: var(--board); color: var(--ink-2); border-color: var(--rule); }
+.chip.b2b { box-shadow: inset 3px 0 0 var(--red); }
+
+.grid td.num, .grid th.num { text-align: center; padding: 3px 10px; font-weight: 600; }
+.grid td.num { font-size: 16px; }
+.grid td.gp-0 { color: var(--ink-3); font-weight: 400; }
+.grid td.stat-2 { color: var(--ink-2); font-size: 15px; font-weight: 500; }
+
+.sortable { cursor: pointer; user-select: none; }
+.sortable:hover { color: var(--blue); }
+.sortable .arrow { color: var(--red); font-size: 11px; }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.key { display: flex; align-items: center; gap: 7px; }
+.key .chip { font-family: 'Barlow Semi Condensed', sans-serif; min-width: 0; }
+
+.swatch-off {
+  width: 16px; height: 16px;
+  background: var(--off);
+  border: 1px solid var(--off-line);
+}
+
+.swatch-b2b {
+  width: 16px; height: 16px;
+  background: var(--board);
+  border: 1px solid var(--rule);
+  box-shadow: inset 3px 0 0 var(--red);
+}
+
+/* ── Veckotabell ──────────────────────────── */
+.weeks { font-size: 14px; }
+
+.weeks th {
+  position: sticky;
+  top: 0;
+  background: var(--board);
+  border-bottom: 2px solid var(--ink);
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 600;
+}
+
+.weeks td { padding: 5px 10px; border-bottom: 1px solid var(--rule-2); }
+.weeks .num { text-align: right; font-variant-numeric: tabular-nums; }
+.weeks input {
+  font: 400 14px Barlow, sans-serif;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 4px 6px;
+}
+
+.weeks input[type="text"] { width: 140px; }
+.weeks input[type="number"] { width: 56px; }
+.weeks tr.bad td { background: #fdf0f0; }
+
+.row-del {
+  background: none;
+  border: 0;
+  color: var(--ink-3);
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+}
+
+.row-del:hover { color: var(--red); }
+
+/* ── Tomt läge ────────────────────────────── */
+.empty {
+  max-width: 56ch;
+  background: var(--board);
+  border: 1px solid var(--rule);
+  padding: 28px;
+}
+
+.empty h2 { margin: 0 0 8px; font: 600 20px 'Barlow Semi Condensed', sans-serif; }
+.empty p { color: var(--ink-2); margin: 0 0 16px; }
+
+@media (max-width: 760px) {
+  .team-name { display: none; }
+  .stamp { width: 100%; margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
