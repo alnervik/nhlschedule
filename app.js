@@ -8,12 +8,19 @@ const state = {
   weeks: [],        // [{ label, number, start, end }]
   pick: '0',        // index i weeks, 'season' eller 'custom'
   custom: { start: null, end: null },
-  offMax: 8,
+  offMax: 6,
   minGp: 0,
   division: 'all',
-  sort: { key: 'gp', dir: -1 },
+  sort: { key: 'score', dir: -1 },
   pinned: new Set(),
 };
+
+/* Poängen väger ihop kolumnerna till ett tal: en match är värd 1, en match på
+   ledig kväll lite mer, en match mot ett tröttkört lag lite mer, och en match
+   dagen efter en annan match lite mindre. */
+const WEIGHT = { game: 1, off: 0.25, tired: 0.15, b2b: -0.3 };
+const scoreOf = (r) =>
+  r.gp * WEIGHT.game + r.off * WEIGHT.off + r.tired * WEIGHT.tired + r.b2b * WEIGHT.b2b;
 
 /* ── Datum, allt i UTC ──────────────────────────────────────── */
 const toDate = (s) => new Date(`${s}T00:00:00Z`);
@@ -116,26 +123,48 @@ function buildTable() {
     if (inRange.has(g.date)) gamesByDay.get(g.date).push(g);
   }
 
-  const offNight = new Map(days.map((d) => [d, gamesByDay.get(d).length <= state.offMax]));
+  // En dag utan matcher är ingen ledig kväll — det finns inget att plocka upp.
+  const offNight = new Map(days.map((d) => {
+    const n = gamesByDay.get(d).length;
+    return [d, n > 0 && n <= state.offMax];
+  }));
 
   const rows = state.schedule.teams.map((team) => {
-    let gp = 0, off = 0, b2b = 0;
+    let gp = 0, off = 0, b2b = 0, tired = 0;
     const cells = days.map((day) => {
       const g = playsOn.get(`${team.abbrev}|${day}`);
       if (!g) return null;
-      gp++;
-      if (offNight.get(day)) off++;
+      const home = g.home === team.abbrev;
+      const opp = home ? g.away : g.home;
+      const isOff = offNight.get(day);
       const back = playsOn.has(`${team.abbrev}|${addDays(day, -1)}`);
+      const oppBack = playsOn.has(`${opp}|${addDays(day, -1)}`);
+      gp++;
+      if (isOff) off++;
       if (back) b2b++;
-      return { home: g.home === team.abbrev, opp: g.home === team.abbrev ? g.away : g.home, b2b: back };
+      if (oppBack) tired++;
+      return { home, opp, b2b: back, tired: oppBack, off: isOff };
     });
-    return { team, cells, gp, off, b2b };
+    const row = { team, cells, gp, off, b2b, tired };
+    row.score = scoreOf(row);
+    return row;
   });
 
   return { days, gamesByDay, offNight, rows, label, start, end };
 }
 
 /* ── Rendering ──────────────────────────────────────────────── */
+
+/* Kolumnerna till vänster om rutnätet, i ordning. `heat` styr färgskalan:
+   warm = mer är bättre (gult), cool = mer är sämre (blått). */
+const STATS = [
+  { key: 'score', label: 'Poäng', title: 'Matcher viktade med lediga kvällar, trötta motståndare och B2B', heat: 'warm', dec: 1 },
+  { key: 'gp',    label: 'Matcher', title: 'Matcher i perioden', heat: 'warm' },
+  { key: 'off',   label: 'Lediga', title: 'Matcher på lediga kvällar — de som är lättast att få in i laguppställningen', heat: 'warm' },
+  { key: 'b2b',   label: 'B2B', title: 'Matcher laget spelar dagen efter en annan match', heat: 'cool' },
+  { key: 'tired', label: 'Trötta', title: 'Matcher mot ett lag som spelade dagen innan', heat: 'warm' },
+];
+
 function render() {
   const t = buildTable();
 
@@ -147,6 +176,7 @@ function render() {
   renderReadout(t, visible);
   renderHead(t);
   renderBody(t, visible);
+  layoutFrozen();
   $('#clearPins').hidden = state.pinned.size === 0;
 }
 
@@ -154,39 +184,53 @@ function compare(a, b) {
   const { key, dir } = state.sort;
   if (key === 'team') return a.team.abbrev.localeCompare(b.team.abbrev) * dir;
   const diff = (a[key] - b[key]) * dir;
-  return diff || b.gp - a.gp || a.team.abbrev.localeCompare(b.team.abbrev);
+  return diff || b.off - a.off || b.gp - a.gp || a.team.abbrev.localeCompare(b.team.abbrev);
+}
+
+/* Färgskalan sätts relativt urvalet, så den fungerar lika bra för en vecka
+   som för hela grundserien. Nivå 0 = ingen färg. */
+function ramp(values) {
+  const used = values.filter((v) => v > 0);
+  const max = Math.max(...used, 0);
+  const min = Math.min(...used, max);
+  return (v) => {
+    if (!(v > 0)) return 0;
+    if (max === min) return 3;
+    return 1 + Math.round(3 * (v - min) / (max - min));
+  };
 }
 
 function renderReadout(t, visible) {
   const total = t.days.reduce((n, d) => n + t.gamesByDay.get(d).length, 0);
   const offDays = t.days.filter((d) => t.offNight.get(d));
   const offText = offDays.length
-    ? offDays.map((d) => `${fmtWeekday.format(toDate(d))} ${shortDate(d)}`).join(', ')
+    ? offDays.map((d) => `${fmtWeekday.format(toDate(d))} ${shortDate(d)} (${t.gamesByDay.get(d).length})`).join(', ')
     : 'inga';
   $('#readout').innerHTML =
     `<b>${t.label}</b> · ${fmtLong.format(toDate(t.start))} – ${fmtLong.format(toDate(t.end))} · `
     + `${t.days.length} ${t.days.length === 1 ? 'dag' : 'dagar'} · ${total} matcher · ${visible.length} lag i listan<br>`
-    + `Lediga kvällar (≤ ${state.offMax} matcher): ${offText}`;
+    + `<b>${offDays.length}</b> lediga kvällar (≤ ${state.offMax} matcher): ${offText}`;
 }
 
 function renderHead(t) {
   const arrow = (key) => (state.sort.key === key ? ` <span class="arrow">${state.sort.dir < 0 ? '▼' : '▲'}</span>` : '');
+
+  let frz = 0;
+  const teamCol = `<th class="col-team frozen sortable" data-frz="${frz++}" data-sort="team">Lag${arrow('team')}</th>`;
+  const statCols = STATS.map((s, i) =>
+    `<th class="num frozen sortable${i === STATS.length - 1 ? ' frozen-last' : ''}" `
+    + `data-frz="${frz++}" data-sort="${s.key}" title="${s.title}">${s.label}${arrow(s.key)}</th>`).join('');
+
   const dayCols = t.days.map((d) => {
     const n = t.gamesByDay.get(d).length;
-    const cls = t.offNight.get(d) ? ' class="is-off"' : '';
-    return `<th${cls}>`
+    const cls = t.offNight.get(d) ? ' is-off' : '';
+    return `<th class="col-day${cls}">`
       + `<span class="day-name">${fmtWeekday.format(toDate(d))}</span>`
       + `<span class="day-date">${shortDate(d)}</span>`
       + `<span class="day-load">${n}</span></th>`;
   }).join('');
 
-  $('#gridHead').innerHTML = `<tr>
-    <th class="col-team sortable" data-sort="team">Lag${arrow('team')}</th>
-    ${dayCols}
-    <th class="num sortable" data-sort="gp" title="Matcher i perioden">Matcher${arrow('gp')}</th>
-    <th class="num sortable" data-sort="off" title="Matcher på lediga kvällar">Lediga${arrow('off')}</th>
-    <th class="num sortable" data-sort="b2b" title="Matcher dagen efter en match">B2B${arrow('b2b')}</th>
-  </tr>`;
+  $('#gridHead').innerHTML = `<tr>${teamCol}${statCols}${dayCols}</tr>`;
 
   for (const th of $('#gridHead').querySelectorAll('.sortable')) {
     th.addEventListener('click', () => {
@@ -199,27 +243,35 @@ function renderHead(t) {
 }
 
 function renderBody(t, visible) {
-  $('#gridBody').innerHTML = visible.map((r) => {
-    const cells = r.cells.map((c, i) => {
-      const off = t.offNight.get(t.days[i]) ? ' is-off' : '';
-      if (!c) return `<td class="cell${off}"></td>`;
-      const cls = `chip ${c.home ? 'chip-home' : 'chip-away'}${c.b2b ? ' b2b' : ''}`;
-      const text = c.home ? c.opp : `@${c.opp}`;
-      return `<td class="cell${off}"><span class="${cls}">${text}</span></td>`;
-    }).join('');
+  const scales = Object.fromEntries(STATS.map((s) => [s.key, ramp(visible.map((r) => r[s.key]))]));
 
-    return `<tr class="${state.pinned.has(r.team.abbrev) ? 'is-pinned' : ''}">
-      <td class="col-team">
+  $('#gridBody').innerHTML = visible.map((r) => {
+    let frz = 0;
+    const teamCol = `<td class="col-team frozen" data-frz="${frz++}">
         <button class="team-btn" data-team="${r.team.abbrev}">
           <span class="team-abv">${r.team.abbrev}</span>
           <span class="team-name">${r.team.name ?? ''}</span>
         </button>
-      </td>
-      ${cells}
-      <td class="num${r.gp === 0 ? ' gp-0' : ''}">${r.gp}</td>
-      <td class="num stat-2">${r.off}</td>
-      <td class="num stat-2">${r.b2b}</td>
-    </tr>`;
+      </td>`;
+
+    const statCols = STATS.map((s, i) => {
+      const v = r[s.key];
+      const level = scales[s.key](v);
+      const cls = `num frozen${i === STATS.length - 1 ? ' frozen-last' : ''} ${level ? `${s.heat}-${level}` : 'zero'}`;
+      return `<td class="${cls}" data-frz="${frz++}">${s.dec ? v.toFixed(s.dec) : v}</td>`;
+    }).join('');
+
+    const dayCols = r.cells.map((c, i) => {
+      if (!c) return '<td class="cell"></td>';
+      const off = c.off ? ' is-off' : '';
+      const cls = `chip ${c.home ? 'chip-home' : 'chip-away'}${c.b2b ? ' b2b' : ''}`;
+      const text = c.home ? c.opp : `@${c.opp}`;
+      const title = c.b2b ? ' title="Andra matchen på två dagar"' : '';
+      const tired = c.tired ? '<span class="tired" title="Motståndaren spelade dagen innan">🥱</span>' : '';
+      return `<td class="cell${off}"><span class="${cls}"${title}>${text}</span>${tired}</td>`;
+    }).join('');
+
+    return `<tr class="${state.pinned.has(r.team.abbrev) ? 'is-pinned' : ''}">${teamCol}${statCols}${dayCols}</tr>`;
   }).join('');
 
   for (const btn of $('#gridBody').querySelectorAll('.team-btn')) {
@@ -228,6 +280,24 @@ function renderBody(t, visible) {
       state.pinned.has(abv) ? state.pinned.delete(abv) : state.pinned.add(abv);
       render();
     });
+  }
+}
+
+/* De frysta kolumnerna limmas fast till vänster. Bredderna varierar med
+   innehåll och skärm, så offseten mäts efter varje rendering. */
+function layoutFrozen() {
+  const heads = [...$('#gridHead').querySelectorAll('th.frozen')];
+  if (!heads.length) return;
+
+  let left = 0;
+  const offsets = heads.map((th) => {
+    const at = left;
+    left += th.getBoundingClientRect().width;
+    return at;
+  });
+
+  for (const cell of $('#grid').querySelectorAll('.frozen')) {
+    cell.style.left = `${offsets[Number(cell.dataset.frz)] ?? 0}px`;
   }
 }
 
@@ -416,7 +486,7 @@ function wire() {
 
   $('#fromDate').addEventListener('change', (e) => { state.custom.start = e.target.value; render(); });
   $('#toDate').addEventListener('change', (e) => { state.custom.end = e.target.value; render(); });
-  $('#offMax').addEventListener('change', (e) => { state.offMax = Number(e.target.value) || 8; render(); });
+  $('#offMax').addEventListener('change', (e) => { state.offMax = Number(e.target.value) || 6; render(); });
   $('#minGp').addEventListener('change', (e) => { state.minGp = Number(e.target.value) || 0; render(); });
   $('#divPick').addEventListener('change', (e) => { state.division = e.target.value; render(); });
   $('#clearPins').addEventListener('click', () => { state.pinned.clear(); render(); });
@@ -442,6 +512,12 @@ function wire() {
   });
 
   $('#fetchLive').addEventListener('click', fetchLive);
+
+  let resizing;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizing);
+    resizing = setTimeout(layoutFrozen, 100);
+  });
 }
 
 boot();
