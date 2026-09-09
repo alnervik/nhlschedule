@@ -1,8 +1,10 @@
 # NHL-schema
 
-Statiskt schemaverktyg för fantasyhockey. Visar vilka lag som spelar mest under en
-vald period och vilka matcher som ligger på lediga kvällar — samma grundidé som
-TJStats schema-app, men som ren HTML/JS så att den kan ligga på GitHub Pages.
+Statiskt schemaverktyg för fantasyhockey. Rangordnar lagen efter hur bra deras
+schema är under en vald period: hur många matcher de spelar, hur många av dem som
+ligger på lediga kvällar, vilka som är back-to-back och vilka som möter ett lag
+som spelade dagen innan — samma grundidé som TJStats schema-app, men som ren
+HTML/JS så att den kan ligga på GitHub Pages.
 
 Ingen build, inga beroenden, inget backend. Schemat ligger som JSON i repot och
 uppdateras av ett Node-skript som GitHub Actions kör varje natt.
@@ -44,14 +46,31 @@ och börja om från mån–sön.
 
 ## Så räknas siffrorna
 
+Sifferkolumnerna ligger till vänster om rutnätet och är frysta, så de syns även när
+man scrollar i sidled genom veckan. Listan sorteras på Poäng från början, och varje
+kolumn går att sortera på genom att klicka på rubriken.
+
 | Kolumn | Betydelse |
 | --- | --- |
+| Poäng | Kolumnerna vägda till ett tal: `matcher + 0,25 × lediga + 0,15 × trötta − 0,3 × B2B` |
 | Matcher | Antal matcher laget spelar i perioden |
-| Lediga | Hur många av dem som ligger på en kväll med högst *N* matcher i hela ligan |
-| B2B | Matcher som spelas dagen efter en annan match |
+| Lediga | Hur många av dem som ligger på en ledig kväll |
+| B2B | Matcher laget spelar dagen efter en annan match |
+| Trötta | Matcher mot ett lag som spelade dagen innan |
 
-Tröskeln för vad som räknas som ledig kväll ställs in i verktygsraden (åtta matcher
-som standard). Lediga kvällar tonas gula i rutnätet.
+En **ledig kväll** är en dag då högst *N* matcher spelas i hela ligan — sex som
+standard, alltså tolv lag på isen. Tröskeln ställs in i verktygsraden. Det är de
+matcherna som är lättast att få in i laguppställningen, eftersom konkurrensen om
+platserna är låg, så de är poängkolumnens tyngsta plusfaktor.
+
+Färgerna är relativa mot urvalet, så skalan fungerar lika bra för en vecka som för
+hela grundserien. Gult betyder att mer är bättre, blått att mer är sämre.
+
+| Markering | Betydelse |
+| --- | --- |
+| Grön cell | Matchen ligger på en ledig kväll |
+| Röd kant på brickan | Lagets andra match på två dagar — vila och backupmålvakt är i spel |
+| 🥱 | Motståndaren spelade dagen innan och är alltså tröttkörd |
 
 ## Data
 

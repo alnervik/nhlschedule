@@ -10,11 +10,23 @@
   --blue:     #1d5c8f;
   --blue-pale:#dceaf5;
   --red:      #b4262b;
-  --off:      #fdf3e3;
-  --off-line: #e0a33c;
+  --off:      #d6f2e6;
+  --off-2:    #b6e7d3;
+  --off-line: #3d9d78;
+  --off-ink:  #1c6a4e;
   --pin:      #fff8d6;
   --radius:   3px;
   --pad:      clamp(12px, 3vw, 28px);
+
+  /* Värmeskalor för sifferkolumnerna: gult = mer är bättre, blått = mer är sämre. */
+  --warm-1:   #fdf8e0;
+  --warm-2:   #fbeeb6;
+  --warm-3:   #f7de83;
+  --warm-4:   #f2c94c;
+  --cool-1:   #eaf2fa;
+  --cool-2:   #cfe2f4;
+  --cool-3:   #a9c9e9;
+  --cool-4:   #7fabd8;
 }
 
 * { box-sizing: border-box; }
@@ -188,31 +200,58 @@ table { border-collapse: separate; border-spacing: 0; width: 100%; }
 
 .grid .day-name { display: block; font-weight: 600; }
 .grid .day-date { display: block; font-weight: 400; font-size: 13px; color: var(--ink-2); }
-.grid .day-load { display: block; font-weight: 500; font-size: 12px; color: var(--ink-3); margin-top: 3px; }
 
+.grid .day-load {
+  display: block;
+  width: fit-content;
+  margin: 4px auto 0;
+  padding: 1px 7px;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--ink-2);
+  background: var(--rule-2);
+  border-radius: 9px;
+}
+
+/* Ledig kväll: högst N matcher i hela ligan. */
 .grid th.is-off { background: var(--off); }
-.grid th.is-off .day-load { color: #96660f; }
-
+.grid th.is-off .day-name { color: var(--off-ink); }
+.grid th.is-off .day-load { background: var(--off-2); color: var(--off-ink); }
 .grid td.is-off { background: var(--off); }
 
-.grid th.col-team,
-.grid td.col-team {
+/* ── Frysta kolumner till vänster ─────────── */
+.grid th.frozen,
+.grid td.frozen {
   position: sticky;
   left: 0;
   z-index: 2;
   background: var(--board);
-  text-align: left;
-  border-right: 1px solid var(--rule);
 }
 
-.grid thead th.col-team { z-index: 4; }
+.grid thead th.frozen { z-index: 4; }
+
+.grid th.frozen-last,
+.grid td.frozen-last { border-right: 2px solid var(--ink); }
+
+.grid th.col-team,
+.grid td.col-team { text-align: left; }
 
 .grid td.col-team { padding: 4px 10px 4px 8px; }
 
-.grid tbody tr.is-pinned td { background: var(--pin); }
-.grid tbody tr.is-pinned td.col-team { background: var(--pin); }
-.grid tbody tr:hover td { background: #f4f7fa; }
-.grid tbody tr:hover td.col-team { background: #f4f7fa; }
+/* Värmeskalorna ligger efter .frozen så att de vinner på bakgrunden. */
+.grid td.warm-1 { background: var(--warm-1); }
+.grid td.warm-2 { background: var(--warm-2); }
+.grid td.warm-3 { background: var(--warm-3); }
+.grid td.warm-4 { background: var(--warm-4); }
+.grid td.cool-1 { background: var(--cool-1); }
+.grid td.cool-2 { background: var(--cool-2); }
+.grid td.cool-3 { background: var(--cool-3); }
+.grid td.cool-4 { background: var(--cool-4); }
+.grid td.zero { color: var(--ink-3); font-weight: 400; }
+
+/* Markering och hover läggs som ett lager ovanpå, så färgskalan syns igenom. */
+.grid tbody tr.is-pinned td { box-shadow: inset 0 0 0 999px rgba(224, 163, 60, .22); }
+.grid tbody tr:hover td { box-shadow: inset 0 0 0 999px rgba(29, 92, 143, .07); }
 
 .team-btn {
   display: flex;
@@ -243,13 +282,18 @@ table { border-collapse: separate; border-spacing: 0; width: 100%; }
 }
 
 .chip-home { background: var(--blue-pale); color: #123f63; border-color: #bcd8ea; }
-.chip-away { background: var(--board); color: var(--ink-2); border-color: var(--rule); }
-.chip.b2b { box-shadow: inset 3px 0 0 var(--red); }
+.chip-away { background: transparent; color: var(--ink-2); border-color: var(--rule); }
+.chip.b2b { box-shadow: inset 4px 0 0 var(--red); padding-left: 9px; }
+
+.tired {
+  margin-left: 2px;
+  font-size: 12px;
+  line-height: 1;
+  cursor: help;
+}
 
 .grid td.num, .grid th.num { text-align: center; padding: 3px 10px; font-weight: 600; }
 .grid td.num { font-size: 16px; }
-.grid td.gp-0 { color: var(--ink-3); font-weight: 400; }
-.grid td.stat-2 { color: var(--ink-2); font-size: 15px; font-weight: 500; }
 
 .sortable { cursor: pointer; user-select: none; }
 .sortable:hover { color: var(--blue); }
@@ -277,8 +321,23 @@ table { border-collapse: separate; border-spacing: 0; width: 100%; }
   width: 16px; height: 16px;
   background: var(--board);
   border: 1px solid var(--rule);
-  box-shadow: inset 3px 0 0 var(--red);
+  box-shadow: inset 4px 0 0 var(--red);
 }
+
+.swatch-scale {
+  display: flex;
+  border: 1px solid var(--rule);
+}
+
+.swatch-scale i { width: 13px; height: 16px; }
+.swatch-scale.warm i:nth-child(1) { background: var(--warm-1); }
+.swatch-scale.warm i:nth-child(2) { background: var(--warm-2); }
+.swatch-scale.warm i:nth-child(3) { background: var(--warm-3); }
+.swatch-scale.warm i:nth-child(4) { background: var(--warm-4); }
+.swatch-scale.cool i:nth-child(1) { background: var(--cool-1); }
+.swatch-scale.cool i:nth-child(2) { background: var(--cool-2); }
+.swatch-scale.cool i:nth-child(3) { background: var(--cool-3); }
+.swatch-scale.cool i:nth-child(4) { background: var(--cool-4); }
 
 /* ── Veckotabell ──────────────────────────── */
 .weeks { font-size: 14px; }
@@ -331,6 +390,10 @@ table { border-collapse: separate; border-spacing: 0; width: 100%; }
 @media (max-width: 760px) {
   .team-name { display: none; }
   .stamp { width: 100%; margin-left: 0; }
+
+  /* Bara lagkolumnen får plats att ligga kvar när man scrollar i sidled. */
+  .grid .frozen:not(.col-team) { position: static; }
+  .grid td.num, .grid th.num { padding: 3px 6px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
