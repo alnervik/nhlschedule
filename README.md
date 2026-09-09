@@ -2,7 +2,7 @@
 
 Statiskt schemaverktyg för fantasyhockey. Rangordnar lagen efter hur bra deras
 schema är under en vald period: hur många matcher de spelar, hur många av dem som
-ligger på lediga kvällar, vilka som är back-to-back och vilka som möter ett lag
+ligger på offnights, vilka som är back-to-back och vilka som möter ett lag
 som spelade dagen innan — samma grundidé som TJStats schema-app, men som ren
 HTML/JS så att den kan ligga på GitHub Pages.
 
@@ -52,13 +52,13 @@ kolumn går att sortera på genom att klicka på rubriken.
 
 | Kolumn | Betydelse |
 | --- | --- |
-| Poäng | Kolumnerna vägda till ett tal: `matcher + 0,25 × lediga + 0,15 × trötta − 0,3 × B2B` |
+| Poäng | Kolumnerna vägda till ett tal: `matcher + 0,25 × offnights + 0,15 × trötta − 0,3 × B2B` |
 | Matcher | Antal matcher laget spelar i perioden |
-| Lediga | Hur många av dem som ligger på en ledig kväll |
+| Offnights | Hur många av dem som ligger på en offnight |
 | B2B | Matcher laget spelar dagen efter en annan match |
 | Trötta | Matcher mot ett lag som spelade dagen innan |
 
-En **ledig kväll** är en dag då högst *N* matcher spelas i hela ligan — sex som
+En **offnight** är en dag då högst *N* matcher spelas i hela ligan — sex som
 standard, alltså tolv lag på isen. Tröskeln ställs in i verktygsraden. Det är de
 matcherna som är lättast att få in i laguppställningen, eftersom konkurrensen om
 platserna är låg, så de är poängkolumnens tyngsta plusfaktor.
@@ -68,7 +68,7 @@ hela grundserien. Gult betyder att mer är bättre, blått att mer är sämre.
 
 | Markering | Betydelse |
 | --- | --- |
-| Grön cell | Matchen ligger på en ledig kväll |
+| Grön cell | Matchen ligger på en offnight |
 | Röd kant på brickan | Lagets andra match på två dagar — vila och backupmålvakt är i spel |
 | 🥱 | Motståndaren spelade dagen innan och är alltså tröttkörd |
 
