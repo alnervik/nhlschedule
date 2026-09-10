@@ -17,11 +17,6 @@
     <span class="season" id="seasonLabel">–</span>
   </div>
 
-  <nav class="tabs" role="tablist">
-    <button class="tab is-on" data-view="schedule" role="tab">Schema</button>
-    <button class="tab" data-view="weeks" role="tab">Veckor</button>
-  </nav>
-
   <p class="stamp" id="stamp"></p>
 </header>
 
@@ -85,51 +80,6 @@
     <span class="key"><span class="swatch-scale cool"><i></i><i></i><i></i><i></i></span> mer är sämre</span>
     <span class="key">Klicka på ett lag för att markera det.</span>
   </p>
-</section>
-
-<!-- ─────────────── Veckovy ─────────────── -->
-<section id="view-weeks" hidden>
-  <p class="lede">
-    Yahoo lägger sina fantasyveckor måndag–söndag, men premiärveckan är kortare och
-    uppehåll (OS, All-Star) slår ihop två veckor till en. Justera raderna så att de
-    matchar din liga — ändringarna sparas direkt i den här webbläsaren och ligger kvar
-    nästa gång du öppnar sidan.
-  </p>
-
-  <p class="lede">
-    <b>Ska någon annan se samma datum?</b> Ändringarna är sparade i din webbläsare och
-    följer inte med sidan av sig själv. Två sätt att dela dem:
-    <b>Kopiera delningslänk</b> ger en adress som sätter veckorna åt den som öppnar den —
-    snabbast. Vill du att de ska gälla för alla, för alltid, lägger du in dem i
-    <a href="https://github.com/alnervik/nhlschedule/edit/main/data/weeks.json" target="_blank" rel="noopener"><code>data/weeks.json</code></a>
-    med <b>Kopiera JSON</b> eller nedladdningen. Filen slår igenom hos alla nästa gång
-    de laddar sidan, även om de har egna sparade veckor sedan tidigare.
-  </p>
-
-  <div class="toolbar">
-    <button class="solid" id="shareWeeks">Kopiera delningslänk</button>
-    <button class="ghost" id="copyWeeks">Kopiera JSON</button>
-    <button class="ghost" id="downloadWeeks">Ladda ner weeks.json</button>
-    <button class="ghost" id="addWeek">Lägg till vecka</button>
-    <button class="ghost" id="regenWeeks">Återställ till mån–sön</button>
-    <button class="ghost" id="forgetWeeks" hidden>Släng mina sparade veckor</button>
-  </div>
-
-  <p class="readout" id="weekMsg"></p>
-  <p class="readout" id="weekStore"></p>
-  <p class="readout" id="weekWarn"></p>
-
-  <div class="grid-wrap">
-    <table class="weeks" id="weekTable">
-      <thead>
-        <tr>
-          <th>Namn</th><th>Nr</th><th>Start</th><th>Slut</th>
-          <th class="num">Dagar</th><th class="num">Matcher</th><th></th>
-        </tr>
-      </thead>
-      <tbody id="weekBody"></tbody>
-    </table>
-  </div>
 </section>
 
 <!-- ─────────────── Tomt läge ─────────────── -->
