@@ -6,6 +6,8 @@ const $ = (sel) => document.querySelector(sel);
 const state = {
   schedule: null,   // { season, updated, teams, games }
   weeks: [],        // [{ label, number, start, end }]
+  fileWeeks: null,  // veckorna som låg i data/weeks.json, för återställning
+  weeksSaved: null, // tidsstämpel om veckorna kommer från webbläsarens lagring
   pick: '0',        // index i weeks, 'season' eller 'custom'
   custom: { start: null, end: null },
   offMax: 6,
@@ -44,6 +46,50 @@ const shortDate = (s) => {
 };
 const seasonLabel = (s) => `${s.slice(0, 4)}-${s.slice(6)}`;
 
+/* ── Sparade veckor ─────────────────────────────────────────── */
+/* Veckoredigeringarna ligger kvar i webbläsaren så att man slipper göra om
+   dem vid varje omladdning. Filen i data/weeks.json är fortfarande facit för
+   alla andra — därför finns knappen som slänger det sparade. */
+const STORE_KEY = 'nhl-schema.weeks.v1';
+
+function readStore() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null; // privat läge, blockerad lagring eller trasig JSON
+  }
+}
+
+const looksLikeWeek = (w) => w && typeof w.start === 'string' && typeof w.end === 'string';
+
+function savedWeeksFor(season) {
+  const saved = readStore();
+  if (!Array.isArray(saved?.weeks) || !saved.weeks.length) return null;
+  if (!saved.weeks.every(looksLikeWeek)) return null;
+  if (saved.season && season && saved.season !== season) return null; // ny säsong
+  return saved;
+}
+
+function saveWeeks() {
+  try {
+    state.weeksSaved = new Date().toISOString();
+    localStorage.setItem(STORE_KEY, JSON.stringify({
+      season: state.schedule?.season ?? null,
+      saved: state.weeksSaved,
+      weeks: state.weeks,
+    }));
+  } catch { /* lagringen kan vara avstängd — då gäller bara den här sessionen */ }
+}
+
+function forgetSavedWeeks() {
+  try { localStorage.removeItem(STORE_KEY); } catch { /* redan borta */ }
+  state.weeksSaved = null;
+  state.weeks = state.fileWeeks?.length
+    ? state.fileWeeks.map((w) => ({ ...w }))
+    : defaultWeeks(state.schedule.games);
+}
+
 /* ── Inläsning ──────────────────────────────────────────────── */
 async function boot() {
   wire();
@@ -69,7 +115,13 @@ async function boot() {
 
 function start(schedule, weeks) {
   state.schedule = schedule;
-  state.weeks = weeks?.length ? weeks : defaultWeeks(schedule.games);
+  state.fileWeeks = weeks?.length ? weeks : null;
+
+  // Egna ändringar vinner över filen, annars filen, annars mån–sön.
+  const saved = savedWeeksFor(schedule.season);
+  state.weeksSaved = saved?.saved ?? null;
+  state.weeks = saved?.weeks
+    ?? (weeks?.length ? weeks.map((w) => ({ ...w })) : defaultWeeks(schedule.games));
 
   $('#seasonLabel').textContent = seasonLabel(schedule.season);
   $('#stamp').textContent = schedule.updated
@@ -355,6 +407,8 @@ function renderWeeks() {
     ? `<span class="err">${problems.join(' · ')}</span>`
     : 'Veckorna hänger ihop utan glapp eller överlapp.';
 
+  renderWeekStore();
+
   $('#weekBody').innerHTML = state.weeks.map((w, i) => {
     const days = dayRange(w.start, w.end);
     const games = days.reduce((n, d) => n + (counts.get(d) ?? 0), 0);
@@ -375,6 +429,7 @@ function renderWeeks() {
       const w = state.weeks[Number(input.dataset.i)];
       const k = input.dataset.k;
       w[k] = k === 'number' ? Number(input.value) : input.value;
+      saveWeeks();
       renderWeeks();
       fillWeekPicker();
       $('#weekPick').value = state.pick;
@@ -385,10 +440,24 @@ function renderWeeks() {
     btn.addEventListener('click', () => {
       state.weeks.splice(Number(btn.dataset.del), 1);
       state.pick = '0';
+      saveWeeks();
       renderWeeks();
       fillWeekPicker();
     });
   }
+}
+
+function renderWeekStore() {
+  const el = $('#weekStore');
+  if (!el) return;
+  const when = state.weeksSaved
+    ? new Intl.DateTimeFormat('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(state.weeksSaved))
+    : null;
+  el.innerHTML = when
+    ? `Dina veckor sparas i den här webbläsaren och ligger kvar när du laddar om. Senast ändrat ${when}.`
+    : `Veckorna kommer från ${state.fileWeeks ? '<code>data/weeks.json</code>' : 'mån–sön-mallen'}.`
+      + ' Ändrar du något sparas det i den här webbläsaren.';
+  $('#forgetWeeks').hidden = !state.weeksSaved;
 }
 
 function downloadWeeks() {
@@ -495,6 +564,7 @@ function wire() {
   $('#regenWeeks').addEventListener('click', () => {
     state.weeks = defaultWeeks(state.schedule.games);
     state.pick = '0';
+    saveWeeks();
     renderWeeks();
     fillWeekPicker();
   });
@@ -507,8 +577,17 @@ function wire() {
       start,
       end: addDays(start, 6),
     });
+    saveWeeks();
     renderWeeks();
     fillWeekPicker();
+  });
+  $('#forgetWeeks').addEventListener('click', () => {
+    if (!confirm('Släng dina sparade veckor och läs om dem från filen?')) return;
+    forgetSavedWeeks();
+    state.pick = '0';
+    renderWeeks();
+    fillWeekPicker();
+    $('#weekPick').value = state.pick;
   });
 
   $('#fetchLive').addEventListener('click', fetchLive);

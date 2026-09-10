@@ -38,8 +38,15 @@ för OS eller All-Star slår ihop två veckor till en. `data/weeks.json` generer
 med mån–sön som utgångspunkt och rörs sedan aldrig av skriptet.
 
 Justera dem under fliken **Veckor** i appen: ändra datum, slå ihop eller ta bort
-rader, ladda ner filen och lägg den i `data/`. Appen varnar för glapp och överlapp
-mellan veckorna.
+rader. Appen varnar för glapp och överlapp mellan veckorna.
+
+Ändringarna sparas direkt i webbläsaren (`localStorage`) och ligger kvar när du
+laddar om sidan — du behöver alltså bara ställa in Yahoos datum en gång. De gäller
+bara din egen webbläsare och slås inte ut av nattjobbet. Vill du att alla som
+öppnar sidan ska få samma veckor: ladda ner filen och lägg den i `data/`.
+Knappen **Släng mina sparade veckor** rensar det sparade och läser om
+`data/weeks.json`. Byter säsongen i `schedule.json` ignoreras gamla sparade veckor
+automatiskt.
 
 Kör `node scripts/fetch-schedule.mjs --force-weeks` om du vill skriva över filen
 och börja om från mån–sön.

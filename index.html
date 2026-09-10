@@ -92,15 +92,19 @@
   <p class="lede">
     Yahoo lägger sina fantasyveckor måndag–söndag, men premiärveckan är kortare och
     uppehåll (OS, All-Star) slår ihop två veckor till en. Justera raderna så att de
-    matchar din liga, ladda ner filen och lägg den i <code>data/weeks.json</code>.
+    matchar din liga — ändringarna sparas direkt i den här webbläsaren och ligger kvar
+    nästa gång du öppnar sidan. Vill du att alla ska se dem: ladda ner filen och lägg
+    den i <code>data/weeks.json</code>.
   </p>
 
   <div class="toolbar">
     <button class="solid" id="downloadWeeks">Ladda ner weeks.json</button>
     <button class="ghost" id="addWeek">Lägg till vecka</button>
     <button class="ghost" id="regenWeeks">Återställ till mån–sön</button>
+    <button class="ghost" id="forgetWeeks" hidden>Släng mina sparade veckor</button>
   </div>
 
+  <p class="readout" id="weekStore"></p>
   <p class="readout" id="weekWarn"></p>
 
   <div class="grid-wrap">
