@@ -16,8 +16,9 @@
   --off-ink:  #1c6a4e;
   --pin:      #fff8d6;
   --radius:   3px;
-  --pad:      clamp(12px, 2.5vw, 24px);
-  --maxw:     1600px;
+  --pad:      clamp(10px, 1.2vw, 16px);
+  --maxw:     2200px;
+  --gridw:    1500px;   /* så brett rutnätet får sträcka ut sig */
 
   /* Värmeskalor för sifferkolumnerna: gult = mer är bättre, blått = mer är sämre. */
   --warm-1:   #fdf8e0;
@@ -168,21 +169,43 @@ button { font: 500 14px Barlow, sans-serif; cursor: pointer; border-radius: var(
 }
 
 .readout b { color: var(--ink); font-weight: 600; }
+#weekStore { margin-bottom: 4px; }
+
+#weekMsg {
+  margin-bottom: 4px;
+  min-height: 0;
+  font-weight: 500;
+  color: var(--off-ink);
+}
+
+/* Två stycken text ovanför tabellen: håll dem lite bredare men luftiga. */
+.lede + .lede { margin-top: -6px; }
+.lede { max-width: 78ch; }
+.lede b { color: var(--ink); font-weight: 600; }
 .err { color: var(--red); }
 
 /* ── Rutnätet ─────────────────────────────── */
-/* Wrappern krymper till tabellen: kolumnerna ska stå tätt intill varandra
-   i stället för att dras isär över hela bredden. */
+/* Rutnätet får fylla ut skärmen — men bara upp till --gridw, annars dras en
+   kort vecka isär över två meter skärm. Är tabellen bredare än så scrollar
+   wrappern i sidled i stället. */
 .grid-wrap {
   overflow: auto;
   background: var(--board);
   border: 1px solid var(--rule);
-  max-height: 78vh;
+  max-height: 82vh;
   width: fit-content;
+  min-width: min(100%, var(--gridw));
   max-width: 100%;
 }
 
 table { border-collapse: separate; border-spacing: 0; width: auto; }
+
+#grid { width: 100%; }
+
+/* De frysta kolumnerna håller sin bredd, så luften hamnar på dagarna. */
+.grid th.col-team { width: 210px; }
+.grid th.num { width: 78px; }
+.grid th.col-day { min-width: 76px; }
 
 .grid {
   font-family: 'Barlow Semi Condensed', sans-serif;

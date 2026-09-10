@@ -6,6 +6,10 @@ const $ = (sel) => document.querySelector(sel);
 const state = {
   schedule: null,   // { season, updated, teams, games }
   weeks: [],        // [{ label, number, start, end }]
+  fileWeeks: null,  // veckorna som låg i data/weeks.json, för återställning
+  fileUpdated: null,// när filens veckor senast ändrades, om den säger det
+  weeksSaved: null, // tidsstämpel om veckorna kommer från webbläsarens lagring
+  weekSource: 'default', // 'link' | 'store' | 'file' | 'default'
   pick: '0',        // index i weeks, 'season' eller 'custom'
   custom: { start: null, end: null },
   offMax: 6,
@@ -30,6 +34,7 @@ const addDays = (s, n) => {
   d.setUTCDate(d.getUTCDate() + n);
   return toISO(d);
 };
+const daysBetween = (a, b) => Math.round((toDate(b) - toDate(a)) / 86400000);
 const dayRange = (a, b) => {
   const out = [];
   for (let c = a; c <= b && out.length < 400; c = addDays(c, 1)) out.push(c);
@@ -43,6 +48,118 @@ const shortDate = (s) => {
   return `${d.getUTCDate()}/${d.getUTCMonth() + 1}`;
 };
 const seasonLabel = (s) => `${s.slice(0, 4)}-${s.slice(6)}`;
+
+/* ── Sparade veckor ─────────────────────────────────────────── */
+/* Veckoredigeringarna ligger kvar i webbläsaren så att man slipper göra om
+   dem vid varje omladdning. Filen i data/weeks.json är fortfarande facit för
+   alla andra — därför finns knappen som slänger det sparade. */
+const STORE_KEY = 'nhl-schema.weeks.v1';
+
+function readStore() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null; // privat läge, blockerad lagring eller trasig JSON
+  }
+}
+
+const looksLikeWeek = (w) => w && typeof w.start === 'string' && typeof w.end === 'string';
+
+function savedWeeksFor(season) {
+  const saved = readStore();
+  if (!Array.isArray(saved?.weeks) || !saved.weeks.length) return null;
+  if (!saved.weeks.every(looksLikeWeek)) return null;
+  if (saved.season && season && saved.season !== season) return null; // ny säsong
+  return saved;
+}
+
+function saveWeeks() {
+  state.weekSource = 'store';
+  try {
+    state.weeksSaved = new Date().toISOString();
+    localStorage.setItem(STORE_KEY, JSON.stringify({
+      season: state.schedule?.season ?? null,
+      saved: state.weeksSaved,
+      base: state.fileUpdated ?? null, // vilken version av filen ändringen bygger på
+      weeks: state.weeks,
+    }));
+  } catch { /* lagringen kan vara avstängd — då gäller bara den här sessionen */ }
+}
+
+function forgetStore() {
+  try { localStorage.removeItem(STORE_KEY); } catch { /* redan borta */ }
+  state.weeksSaved = null;
+}
+
+function forgetSavedWeeks() {
+  forgetStore();
+  state.weeks = state.fileWeeks?.length
+    ? state.fileWeeks.map((w) => ({ ...w }))
+    : defaultWeeks(state.schedule.games);
+  state.weekSource = state.fileWeeks?.length ? 'file' : 'default';
+}
+
+/* ── Veckor i länken ────────────────────────────────────────── */
+/* Sidan är statisk och har ingen server att spara i, så veckorna får åka med
+   i adressen när man delar den: den som öppnar länken ser samma datum direkt,
+   utan att behöva ändra något själv. Formatet är dagar räknade från första
+   veckans start — kort nog att länken går att klistra in var som helst.
+
+   1~<säsong>~<startdatum>~<start>-<slut>[*<nr>*<namn>]_… */
+const LINK_KEY = 'veckor';
+const escapePart = (s) => encodeURIComponent(s).replace(/[*_~]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+
+function encodeWeeks(weeks, season) {
+  const sorted = [...weeks].sort((a, b) => a.start.localeCompare(b.start));
+  if (!sorted.length) return '';
+  const base = sorted[0].start;
+  const parts = sorted.map((w, i) => {
+    const span = `${daysBetween(base, w.start)}-${daysBetween(base, w.end)}`;
+    // "Vecka 3" som treans namn är underförstått och behöver inte ta plats.
+    const plain = w.number === i + 1 && w.label === `Vecka ${w.number}`;
+    return plain ? span : `${span}*${w.number}*${escapePart(w.label)}`;
+  });
+  return `1~${season ?? ''}~${base}~${parts.join('_')}`;
+}
+
+function decodeWeeks(code) {
+  const [version, season, base, body] = String(code).split('~');
+  if (version !== '1' || !/^\d{4}-\d{2}-\d{2}$/.test(base ?? '') || !body) return null;
+  const weeks = [];
+  body.split('_').forEach((part, i) => {
+    const [span, num, label] = part.split('*');
+    const [a, b] = span.split('-').map(Number);
+    if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < a || b > 400) return;
+    const number = Number(num) || i + 1;
+    weeks.push({
+      label: label ? decodeURIComponent(label).slice(0, 60) : `Vecka ${number}`,
+      number,
+      start: addDays(base, a),
+      end: addDays(base, b),
+    });
+  });
+  return weeks.length ? { season: season || null, weeks } : null;
+}
+
+/* Koden plockas ut rå, utan avkodning: %2A i ett veckonamn ska inte bli en
+   riktig stjärna förrän namnet är avskilt från sina separatorer. */
+function weeksFromLink() {
+  const code = new RegExp(`(?:^|&)${LINK_KEY}=([^&]*)`).exec(location.hash.slice(1))?.[1];
+  if (!code) return null;
+  try { return decodeWeeks(code); } catch { return null; }
+}
+
+/* Länken plockas bort ur adressraden när den väl är läst, annars skulle den
+   skriva över mottagarens egna ändringar vid varje omladdning. */
+function clearLink() {
+  try { history.replaceState(null, '', location.pathname + location.search); } catch { /* file:// */ }
+}
+
+function shareUrl() {
+  const code = encodeWeeks(state.weeks, state.schedule?.season);
+  return `${location.origin}${location.pathname}#${LINK_KEY}=${code}`;
+}
 
 /* ── Inläsning ──────────────────────────────────────────────── */
 async function boot() {
@@ -58,18 +175,48 @@ async function boot() {
     return;
   }
 
-  let weeks = null;
+  let file = null;
   try {
     const res = await fetch('data/weeks.json', { cache: 'no-cache' });
-    if (res.ok) weeks = (await res.json()).weeks;
+    if (res.ok) file = await res.json();
   } catch { /* valfri */ }
 
-  start(schedule, weeks);
+  start(schedule, file?.weeks, file?.updated);
 }
 
-function start(schedule, weeks) {
+function start(schedule, weeks, fileUpdated) {
   state.schedule = schedule;
-  state.weeks = weeks?.length ? weeks : defaultWeeks(schedule.games);
+  state.fileWeeks = weeks?.length ? weeks : null;
+  state.fileUpdated = fileUpdated ?? null;
+
+  /* Ordningen: en delad länk först, sedan egna sparade ändringar — men bara
+     så länge filen inte är nyare än de. Har någon lagt in nya veckor i
+     data/weeks.json ska de slå igenom hos alla, annars sitter man fast i sin
+     egen gamla kopia utan att förstå varför. */
+  const linked = weeksFromLink();
+  const saved = savedWeeksFor(schedule.season);
+  // Filen räknas som nyare när den har ändrats sedan man sparade sina egna
+  // veckor. Jämförelsen går på filens version, inte på klockan — de två
+  // datorerna behöver inte vara överens om vad den är.
+  const fileIsNewer = Boolean(state.fileUpdated) && state.fileUpdated !== saved?.base;
+
+  if (linked?.weeks) {
+    state.weeks = linked.weeks;
+    saveWeeks();           // så att den som öppnade länken slipper göra om det
+    state.weekSource = 'link';
+  } else if (saved && !fileIsNewer) {
+    state.weeks = saved.weeks;
+    state.weeksSaved = saved.saved ?? null;
+    state.weekSource = 'store';
+  } else {
+    if (fileIsNewer) forgetStore();
+    state.weeksSaved = null;
+    state.weeks = state.fileWeeks
+      ? state.fileWeeks.map((w) => ({ ...w }))
+      : defaultWeeks(schedule.games);
+    state.weekSource = state.fileWeeks ? 'file' : 'default';
+  }
+  clearLink();
 
   $('#seasonLabel').textContent = seasonLabel(schedule.season);
   $('#stamp').textContent = schedule.updated
@@ -355,6 +502,8 @@ function renderWeeks() {
     ? `<span class="err">${problems.join(' · ')}</span>`
     : 'Veckorna hänger ihop utan glapp eller överlapp.';
 
+  renderWeekStore();
+
   $('#weekBody').innerHTML = state.weeks.map((w, i) => {
     const days = dayRange(w.start, w.end);
     const games = days.reduce((n, d) => n + (counts.get(d) ?? 0), 0);
@@ -375,6 +524,7 @@ function renderWeeks() {
       const w = state.weeks[Number(input.dataset.i)];
       const k = input.dataset.k;
       w[k] = k === 'number' ? Number(input.value) : input.value;
+      saveWeeks();
       renderWeeks();
       fillWeekPicker();
       $('#weekPick').value = state.pick;
@@ -385,23 +535,94 @@ function renderWeeks() {
     btn.addEventListener('click', () => {
       state.weeks.splice(Number(btn.dataset.del), 1);
       state.pick = '0';
+      saveWeeks();
       renderWeeks();
       fillWeekPicker();
     });
   }
 }
 
-function downloadWeeks() {
+const stamp = (iso) =>
+  new Intl.DateTimeFormat('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
+
+function renderWeekStore() {
+  const el = $('#weekStore');
+  if (!el) return;
+
+  const fromFile = `<code>data/weeks.json</code>${state.fileUpdated ? ` (ändrad ${stamp(state.fileUpdated)})` : ''}`;
+  const texts = {
+    link: () => `Veckorna kom från länken du öppnade och är sparade i den här webbläsaren nu.`,
+    store: () => `Dina veckor är sparade i den här webbläsaren och ligger kvar när du laddar om`
+      + `${state.weeksSaved ? `. Senast ändrat ${stamp(state.weeksSaved)}` : ''}.`
+      + ' De syns bara för dig — dela dem med länken eller filen.',
+    file: () => `Veckorna kommer från ${fromFile} och är alltså samma för alla som öppnar sidan.`,
+    default: () => 'Veckorna är mån–sön-mallen. Ändrar du något sparas det i den här webbläsaren.',
+  };
+  el.innerHTML = (texts[state.weekSource] ?? texts.default)();
+  $('#forgetWeeks').hidden = !state.weeksSaved;
+}
+
+/* `updated` är det som gör att en ny fil vinner över gamla sparade veckor
+   hos alla som redan har öppnat sidan. */
+function weeksJson() {
   const payload = {
     season: state.schedule.season,
+    updated: new Date().toISOString(),
     weeks: [...state.weeks].sort((a, b) => a.start.localeCompare(b.start)),
   };
-  const url = URL.createObjectURL(new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: 'application/json' }));
+  return `${JSON.stringify(payload, null, 2)}\n`;
+}
+
+function downloadWeeks() {
+  const url = URL.createObjectURL(new Blob([weeksJson()], { type: 'application/json' }));
   const a = document.createElement('a');
   a.href = url;
   a.download = 'weeks.json';
   a.click();
   URL.revokeObjectURL(url);
+  weekMsg('weeks.json är nedladdad — lägg den i data/ och committa.');
+}
+
+/* Clipboard-API:t kräver https eller localhost, så det finns en reserv. */
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch { /* faller vidare */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:-1000px';
+    document.body.append(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+function weekMsg(text) {
+  const el = $('#weekMsg');
+  if (!el) return;
+  el.textContent = text;
+  clearTimeout(weekMsg.timer);
+  weekMsg.timer = setTimeout(() => { el.textContent = ''; }, 6000);
+}
+
+async function shareWeeks() {
+  const url = shareUrl();
+  weekMsg(await copyText(url)
+    ? 'Länken är kopierad. Den som öppnar den ser dina veckor direkt.'
+    : `Kopiera länken själv: ${url}`);
+}
+
+async function copyWeeksJson() {
+  weekMsg(await copyText(weeksJson())
+    ? 'JSON kopierad — klistra in den i data/weeks.json och committa.'
+    : 'Kunde inte kopiera. Använd nedladdningen i stället.');
 }
 
 /* ── Direkthämtning från NHL:s API ──────────────────────────── */
@@ -491,10 +712,13 @@ function wire() {
   $('#divPick').addEventListener('change', (e) => { state.division = e.target.value; render(); });
   $('#clearPins').addEventListener('click', () => { state.pinned.clear(); render(); });
 
+  $('#shareWeeks').addEventListener('click', shareWeeks);
+  $('#copyWeeks').addEventListener('click', copyWeeksJson);
   $('#downloadWeeks').addEventListener('click', downloadWeeks);
   $('#regenWeeks').addEventListener('click', () => {
     state.weeks = defaultWeeks(state.schedule.games);
     state.pick = '0';
+    saveWeeks();
     renderWeeks();
     fillWeekPicker();
   });
@@ -507,8 +731,18 @@ function wire() {
       start,
       end: addDays(start, 6),
     });
+    saveWeeks();
     renderWeeks();
     fillWeekPicker();
+  });
+  $('#forgetWeeks').addEventListener('click', () => {
+    if (!confirm('Släng dina sparade veckor och läs om dem från filen?')) return;
+    forgetSavedWeeks();
+    state.pick = '0';
+    renderWeeks();
+    fillWeekPicker();
+    $('#weekPick').value = state.pick;
+    weekMsg('Sparade veckor rensade.');
   });
 
   $('#fetchLive').addEventListener('click', fetchLive);

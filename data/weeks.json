@@ -1,5 +1,6 @@
 {
   "season": "20262027",
+  "updated": "2026-09-10T20:10:17Z",
   "weeks": [
     {
       "label": "Vecka 1",
@@ -113,59 +114,53 @@
       "label": "Vecka 19",
       "number": 19,
       "start": "2027-02-01",
-      "end": "2027-02-07"
+      "end": "2027-02-14"
     },
     {
       "label": "Vecka 20",
       "number": 20,
-      "start": "2027-02-08",
-      "end": "2027-02-14"
-    },
-    {
-      "label": "Vecka 21",
-      "number": 21,
       "start": "2027-02-15",
       "end": "2027-02-21"
     },
     {
-      "label": "Vecka 22",
-      "number": 22,
+      "label": "Vecka 21",
+      "number": 21,
       "start": "2027-02-22",
       "end": "2027-02-28"
     },
     {
-      "label": "Vecka 23",
-      "number": 23,
+      "label": "Vecka 22",
+      "number": 22,
       "start": "2027-03-01",
       "end": "2027-03-07"
     },
     {
-      "label": "Vecka 24",
-      "number": 24,
+      "label": "Vecka 23",
+      "number": 23,
       "start": "2027-03-08",
       "end": "2027-03-14"
     },
     {
-      "label": "Vecka 25",
-      "number": 25,
+      "label": "Vecka 24",
+      "number": 24,
       "start": "2027-03-15",
       "end": "2027-03-21"
     },
     {
-      "label": "Vecka 26",
-      "number": 26,
+      "label": "Vecka 25",
+      "number": 25,
       "start": "2027-03-22",
       "end": "2027-03-28"
     },
     {
-      "label": "Vecka 27",
-      "number": 27,
+      "label": "Vecka 26",
+      "number": 26,
       "start": "2027-03-29",
       "end": "2027-04-04"
     },
     {
-      "label": "Vecka 28",
-      "number": 28,
+      "label": "Vecka 27",
+      "number": 27,
       "start": "2027-04-05",
       "end": "2027-04-10"
     }

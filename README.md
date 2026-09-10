@@ -38,8 +38,35 @@ för OS eller All-Star slår ihop två veckor till en. `data/weeks.json` generer
 med mån–sön som utgångspunkt och rörs sedan aldrig av skriptet.
 
 Justera dem under fliken **Veckor** i appen: ändra datum, slå ihop eller ta bort
-rader, ladda ner filen och lägg den i `data/`. Appen varnar för glapp och överlapp
-mellan veckorna.
+rader. Appen varnar för glapp och överlapp mellan veckorna.
+
+Ändringarna sparas direkt i webbläsaren (`localStorage`) och ligger kvar när du
+laddar om sidan — du behöver alltså bara ställa in Yahoos datum en gång. De gäller
+bara din egen webbläsare och slås inte ut av nattjobbet.
+
+### Dela veckorna med andra
+
+Sidan är statisk och har ingen server att spara i, så sparade veckor följer inte
+med av sig själva. Två sätt:
+
+**Filen — permanent, gäller alla.** Tryck **Kopiera JSON** (eller ladda ner filen),
+klistra in i `data/weeks.json` och committa. Alla som öppnar sidan får dina veckor
+nästa gång de laddar om — även de som har egna sparade veckor sedan tidigare, för
+appen ser på fältet `updated` att filen har ändrats sedan de sparade sitt. Det här
+är rätt väg när ni ska titta på samma schema hela säsongen.
+
+**Länken — direkt, ingen commit.** Tryck **Kopiera delningslänk**. Veckorna åker
+med i adressen (`#veckor=…`, dagar räknade från första veckans start) och sätts hos
+den som öppnar den, som också får dem sparade i sin webbläsare. Adressen städas bort
+efter att den lästs, så den skriver inte över mottagarens egna ändringar vid varje
+omladdning. Bra för en snabb delning eller när man inte vill committa.
+
+Knappen **Släng mina sparade veckor** rensar det sparade och läser om
+`data/weeks.json`. Byter säsongen i `schedule.json` ignoreras gamla sparade veckor
+automatiskt.
+
+Länken till GitHub-editorn i veckovyn pekar på det här repot — byt den i
+`index.html` om du forkar.
 
 Kör `node scripts/fetch-schedule.mjs --force-weeks` om du vill skriva över filen
 och börja om från mån–sön.
