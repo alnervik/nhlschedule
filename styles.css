@@ -80,21 +80,6 @@ code {
   border-left: 2px solid var(--red);
 }
 
-.tabs { display: flex; gap: 2px; }
-
-.tab {
-  font: 500 14px/1 Barlow, sans-serif;
-  color: var(--ink-2);
-  background: none;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  padding: 5px 9px;
-  cursor: pointer;
-}
-
-.tab:hover { color: var(--ink); }
-.tab.is-on { color: var(--ink); border-bottom-color: var(--red); }
-
 .stamp {
   margin: 0 0 0 auto;
   font-size: 13px;
@@ -102,13 +87,6 @@ code {
 }
 
 main { padding-block: var(--pad); }
-
-.lede {
-  max-width: 62ch;
-  margin: 0 0 14px;
-  font-size: 14px;
-  color: var(--ink-2);
-}
 
 /* ── Kontroller ───────────────────────────── */
 .toolbar {
@@ -169,19 +147,6 @@ button { font: 500 14px Barlow, sans-serif; cursor: pointer; border-radius: var(
 }
 
 .readout b { color: var(--ink); font-weight: 600; }
-#weekStore { margin-bottom: 4px; }
-
-#weekMsg {
-  margin-bottom: 4px;
-  min-height: 0;
-  font-weight: 500;
-  color: var(--off-ink);
-}
-
-/* Två stycken text ovanför tabellen: håll dem lite bredare men luftiga. */
-.lede + .lede { margin-top: -6px; }
-.lede { max-width: 78ch; }
-.lede b { color: var(--ink); font-weight: 600; }
 .err { color: var(--red); }
 
 /* ── Rutnätet ─────────────────────────────── */
@@ -373,43 +338,6 @@ table { border-collapse: separate; border-spacing: 0; width: auto; }
 .swatch-scale.cool i:nth-child(2) { background: var(--cool-2); }
 .swatch-scale.cool i:nth-child(3) { background: var(--cool-3); }
 .swatch-scale.cool i:nth-child(4) { background: var(--cool-4); }
-
-/* ── Veckotabell ──────────────────────────── */
-.weeks { font-size: 14px; }
-
-.weeks th {
-  position: sticky;
-  top: 0;
-  background: var(--board);
-  border-bottom: 2px solid var(--ink);
-  padding: 7px 10px;
-  text-align: left;
-  font-weight: 600;
-}
-
-.weeks td { padding: 4px 10px; border-bottom: 1px solid var(--rule-2); }
-.weeks .num { text-align: right; font-variant-numeric: tabular-nums; }
-.weeks input {
-  font: 400 14px Barlow, sans-serif;
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
-  padding: 4px 6px;
-}
-
-.weeks input[type="text"] { width: 130px; }
-.weeks input[type="number"] { width: 52px; }
-.weeks tr.bad td { background: #fdf0f0; }
-
-.row-del {
-  background: none;
-  border: 0;
-  color: var(--ink-3);
-  font-size: 18px;
-  line-height: 1;
-  padding: 2px 6px;
-}
-
-.row-del:hover { color: var(--red); }
 
 /* ── Tomt läge ────────────────────────────── */
 .empty {
