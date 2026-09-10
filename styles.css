@@ -170,6 +170,18 @@ button { font: 500 14px Barlow, sans-serif; cursor: pointer; border-radius: var(
 
 .readout b { color: var(--ink); font-weight: 600; }
 #weekStore { margin-bottom: 4px; }
+
+#weekMsg {
+  margin-bottom: 4px;
+  min-height: 0;
+  font-weight: 500;
+  color: var(--off-ink);
+}
+
+/* Två stycken text ovanför tabellen: håll dem lite bredare men luftiga. */
+.lede + .lede { margin-top: -6px; }
+.lede { max-width: 78ch; }
+.lede b { color: var(--ink); font-weight: 600; }
 .err { color: var(--red); }
 
 /* ── Rutnätet ─────────────────────────────── */
