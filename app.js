@@ -353,7 +353,7 @@ const PLAYER_COLS = [
   { key: 'ppg',   label: 'Poäng/GP', fmt: (v) => v.toFixed(2), tabs: ['bangers'] },
   { key: 'sogpg', label: 'Skott/GP', fmt: (v) => v.toFixed(2), heat: 'warm' },
   { key: 'ppppg', label: 'PPP/GP', title: 'Powerplaypoäng per match', fmt: (v) => v.toFixed(2), heat: 'warm', tabs: ['scorers'] },
-  { key: 'ppPct', label: 'PP%', title: 'Andel av lagets powerplaytid som spelaren är på isen', fmt: (v) => `${Math.round(v * 100)}%`, heat: 'warm', tabs: ['scorers'] },
+  { key: 'ppPct', label: 'PP%', title: 'Andel av lagets powerplaytid som spelaren är på isen', fmt: (v) => (v === null || v === undefined ? '–' : `${Math.round(v * 100)}%`), heat: 'warm', tabs: ['scorers'] },
   { key: 'hitpg', label: 'Hits/GP', fmt: (v) => v.toFixed(2), heat: 'warm', tabs: ['bangers'] },
   { key: 'blkpg', label: 'Block/GP', fmt: (v) => v.toFixed(2), heat: 'warm', tabs: ['bangers'] },
   { key: 'shb',   label: 'S+H+B/GP', title: 'Skott + hits + blockeringar per match', fmt: (v) => v.toFixed(2), heat: 'warm', tabs: ['bangers'] },
@@ -416,6 +416,7 @@ function renderPlayers() {
     + `lag med minst <b>${minOff}</b> offnights: ${teams.join(', ') || 'inga'}<br>`
     + `${source}. Statistik från NHL, säsong ${seasonLabel(data.season)}`
     + `${data.gameType === 'preseason' ? ' — <b>försäsongen</b>, tills grundserien kommit igång' : ''}`
+    + `${data.fromBoxscores ? ' (PPP = PP-mål, PP% saknas)' : ''}`
     + `, minst ${state.minPlayerGp} GP.`;
 
   const cols = PLAYER_COLS.filter((c) => !c.tabs || c.tabs.includes(state.tab));

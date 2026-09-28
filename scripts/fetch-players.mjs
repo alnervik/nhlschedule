@@ -65,7 +65,11 @@ async function getRosters() {
     try {
       const r = await getJSON(`${WEB}/roster/${team}/current`);
       for (const p of [...(r.forwards ?? []), ...(r.defensemen ?? [])]) {
-        byId.set(p.id, { team, pos: p.positionCode });
+        byId.set(p.id, {
+          team,
+          pos: p.positionCode,
+          name: `${p.firstName?.default ?? ''} ${p.lastName?.default ?? ''}`.trim(),
+        });
       }
     } catch (err) {
       console.warn(`trupp ${team}: ${err.message}`);
@@ -119,33 +123,17 @@ function matchOwnership(byName, p) {
   return hits.length === 1 ? Math.round(hits[0].own * 10) / 10 : null;
 }
 
-async function main() {
-  const season = seasonArg ?? currentSeason();
-  console.log(`Säsong ${season.slice(0, 4)}-${season.slice(6)}`);
-
-  const fetchStats = (type) => Promise.all([
-    report('summary', season, type), report('realtime', season, type), report('powerplay', season, type),
+/* Från NHL:s stats-API. `gameType` 2 = grundserie, 1 = försäsong. */
+async function fromStatsApi(season, gameType, rosters) {
+  const [summary, realtime, pp] = await Promise.all([
+    report('summary', season, gameType),
+    report('realtime', season, gameType),
+    report('powerplay', season, gameType),
   ]);
-
-  /* Innan grundserien kommit igång (ingen spelare har tre matcher än) används
-     försäsongen, så att flikarna inte står tomma de första dagarna. */
-  let gameType = 'regular';
-  let [summary, realtime, pp] = await fetchStats(2);
-  if (!summary.some((s) => s.gamesPlayed >= 3)) {
-    const pre = await fetchStats(1);
-    if (pre[0].length) {
-      [summary, realtime, pp] = pre;
-      gameType = 'preseason';
-      console.log('Grundserien har knappt börjat – använder försäsongen');
-    }
-  }
   const rt = new Map(realtime.map((r) => [r.playerId, r]));
   const ppById = new Map(pp.map((r) => [r.playerId, r]));
-  console.log(`NHL: ${summary.length} utespelare med statistik`);
 
-  const rosters = summary.length ? await getRosters() : new Map();
-
-  const players = summary.map((s) => {
+  return summary.map((s) => {
     const r = rosters.get(s.playerId);
     const teams = (s.teamAbbrevs ?? '').split(',').filter(Boolean);
     const gp = s.gamesPlayed ?? 0;
@@ -167,6 +155,98 @@ async function main() {
       own: null,
     };
   }).filter((p) => p.gp > 0);
+}
+
+/* Stats-API:t saknar försäsongen, så den summeras från matchernas boxscores.
+   Boxscoren har bara powerplaymål (inte PP-assist) och ingen PP-tid, så
+   PPP blir PP-mål och PP% saknas. */
+async function fromBoxscores(season, rosters) {
+  const games = new Map();
+  for (const team of TEAMS) {
+    try {
+      const r = await getJSON(`${WEB}/club-schedule-season/${team}/${season}`);
+      for (const g of r.games ?? []) {
+        if (g.gameType === 1 && ['OFF', 'FINAL'].includes(g.gameState)) games.set(g.id, g);
+      }
+    } catch (err) {
+      console.warn(`schema ${team}: ${err.message}`);
+    }
+  }
+  console.log(`Försäsong: ${games.size} spelade matcher`);
+
+  const byId = new Map();
+  const secs = (t) => {
+    const [m, s] = (t ?? '0:00').split(':').map(Number);
+    return (m || 0) * 60 + (s || 0);
+  };
+  const ids = [...games.keys()];
+  for (let i = 0; i < ids.length; i += 8) {
+    const boxes = await Promise.all(ids.slice(i, i + 8).map((id) =>
+      getJSON(`${WEB}/gamecenter/${id}/boxscore`).catch((err) => {
+        console.warn(`boxscore ${id}: ${err.message}`);
+        return null;
+      })));
+    for (const box of boxes) {
+      if (!box?.playerByGameStats) continue;
+      for (const side of ['awayTeam', 'homeTeam']) {
+        const stats = box.playerByGameStats[side] ?? {};
+        for (const s of [...(stats.forwards ?? []), ...(stats.defense ?? [])]) {
+          if (!secs(s.toi)) continue; // uppskriven men spelade inte
+          const r = rosters.get(s.playerId);
+          const p = byId.get(s.playerId) ?? {
+            id: s.playerId,
+            name: r?.name || s.name?.default || '',
+            team: r?.team ?? box[side]?.abbrev ?? '',
+            pos: r?.pos ?? s.position,
+            gp: 0, toi: 0, g: 0, a: 0, p: 0, ppp: 0, sog: 0, hit: 0, blk: 0,
+            ppPct: null,
+            own: null,
+          };
+          p.gp++;
+          p.toi += secs(s.toi);
+          p.g += s.goals ?? 0;
+          p.a += s.assists ?? 0;
+          p.p += s.points ?? (s.goals ?? 0) + (s.assists ?? 0);
+          p.ppp += s.powerPlayGoals ?? 0;
+          p.sog += s.sog ?? 0;
+          p.hit += s.hits ?? 0;
+          p.blk += s.blockedShots ?? 0;
+          byId.set(s.playerId, p);
+        }
+      }
+    }
+  }
+  // Bara spelare som finns i en NHL-trupp — försäsongen är full av inbjudna och AHL-spelare.
+  return [...byId.values()].filter((p) => rosters.has(p.id));
+}
+
+async function main() {
+  const season = seasonArg ?? currentSeason();
+  console.log(`Säsong ${season.slice(0, 4)}-${season.slice(6)}`);
+
+  const rosters = await getRosters();
+  console.log(`Trupper: ${rosters.size} utespelare`);
+
+  /* Innan grundserien kommit igång (ingen spelare har tre matcher än) används
+     försäsongen, så att flikarna inte står tomma de första dagarna. */
+  let gameType = 'regular';
+  let fromBox = false;
+  let players = await fromStatsApi(season, 2, rosters);
+  console.log(`NHL grundserie: ${players.length} utespelare med statistik`);
+  if (!players.some((p) => p.gp >= 3)) {
+    let pre = await fromStatsApi(season, 1, rosters);
+    console.log(`NHL försäsong (stats-API): ${pre.length} utespelare`);
+    if (!pre.length) {
+      pre = await fromBoxscores(season, rosters);
+      fromBox = pre.length > 0;
+      console.log(`NHL försäsong (boxscores): ${pre.length} utespelare`);
+    }
+    if (pre.length) {
+      players = pre;
+      gameType = 'preseason';
+      console.log('Grundserien har knappt börjat – använder försäsongen');
+    }
+  }
 
   let rosterSource = null;
   if (players.length) {
@@ -185,7 +265,7 @@ async function main() {
   }
 
   await mkdir(DATA, { recursive: true });
-  const payload = { season, gameType, updated: new Date().toISOString(), rosterSource, players };
+  const payload = { season, gameType, fromBoxscores: fromBox, updated: new Date().toISOString(), rosterSource, players };
   await writeFile(path.join(DATA, 'players.json'), `${JSON.stringify(payload)}\n`);
   console.log(`data/players.json · ${players.length} spelare`);
 }
