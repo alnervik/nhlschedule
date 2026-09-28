@@ -45,8 +45,9 @@ async function getJSON(url, headers = {}, tries = 3) {
   }
 }
 
-const report = async (name, season) => {
-  const exp = encodeURIComponent(`seasonId=${season} and gameTypeId=2`);
+// gameTypeId 1 = försäsong, 2 = grundserie.
+const report = async (name, season, gameType) => {
+  const exp = encodeURIComponent(`seasonId=${season} and gameTypeId=${gameType}`);
   const data = await getJSON(`${STATS}/${name}?limit=-1&cayenneExp=${exp}`);
   return data.data ?? [];
 };
@@ -122,9 +123,22 @@ async function main() {
   const season = seasonArg ?? currentSeason();
   console.log(`Säsong ${season.slice(0, 4)}-${season.slice(6)}`);
 
-  const [summary, realtime, pp] = await Promise.all([
-    report('summary', season), report('realtime', season), report('powerplay', season),
+  const fetchStats = (type) => Promise.all([
+    report('summary', season, type), report('realtime', season, type), report('powerplay', season, type),
   ]);
+
+  /* Innan grundserien kommit igång (ingen spelare har tre matcher än) används
+     försäsongen, så att flikarna inte står tomma de första dagarna. */
+  let gameType = 'regular';
+  let [summary, realtime, pp] = await fetchStats(2);
+  if (!summary.some((s) => s.gamesPlayed >= 3)) {
+    const pre = await fetchStats(1);
+    if (pre[0].length) {
+      [summary, realtime, pp] = pre;
+      gameType = 'preseason';
+      console.log('Grundserien har knappt börjat – använder försäsongen');
+    }
+  }
   const rt = new Map(realtime.map((r) => [r.playerId, r]));
   const ppById = new Map(pp.map((r) => [r.playerId, r]));
   console.log(`NHL: ${summary.length} utespelare med statistik`);
@@ -171,7 +185,7 @@ async function main() {
   }
 
   await mkdir(DATA, { recursive: true });
-  const payload = { season, updated: new Date().toISOString(), rosterSource, players };
+  const payload = { season, gameType, updated: new Date().toISOString(), rosterSource, players };
   await writeFile(path.join(DATA, 'players.json'), `${JSON.stringify(payload)}\n`);
   console.log(`data/players.json · ${players.length} spelare`);
 }

@@ -92,7 +92,10 @@ i schemafliken.
 **Scorers** sorteras på Poäng/GP och visar mål, assist, skott, PPP och PP%
 (andel av lagets powerplaytid). **Bangers** sorteras på S+H+B/GP — skott, hits och
 blockeringar per match. Alla kolumner går att sortera på. Statistiken gäller
-nuvarande säsong, så flikarna är tomma tills de första matcherna är spelade.
+nuvarande säsongs grundserie. Tills någon spelare har tre grundseriematcher
+används försäsongens statistik i stället (det står i flikens inforad), så
+listorna inte står tomma de första dagarna. Skiftet sker automatiskt nästa gång
+skriptet körs.
 
 **Roster% kommer från ESPN, inte Yahoo.** Yahoos API kräver en godkänd
 utvecklaransökan; ESPN:s fantasy-API är öppet. Siffrorna skiljer sig något mellan
