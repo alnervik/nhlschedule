@@ -80,6 +80,11 @@ async function boot() {
   };
   const [file, players] = await Promise.all([optional('data/weeks.json'), optional('data/players.json')]);
   state.players = players;
+  // Försäsongen ger bara några matcher per spelare, så GP-kravet sänks.
+  if (players?.gameType === 'preseason') {
+    state.minPlayerGp = 1;
+    $('#minPlayerGp').value = 1;
+  }
 
   start(schedule, file?.weeks);
 }
@@ -409,7 +414,9 @@ function renderPlayers() {
   $('#playerReadout').innerHTML =
     `<b>${t.label}</b> · ${fmtLong.format(toDate(t.start))} – ${fmtLong.format(toDate(t.end))} · `
     + `lag med minst <b>${minOff}</b> offnights: ${teams.join(', ') || 'inga'}<br>`
-    + `${source}. Statistik från NHL, säsong ${seasonLabel(data.season)}, minst ${state.minPlayerGp} GP.`;
+    + `${source}. Statistik från NHL, säsong ${seasonLabel(data.season)}`
+    + `${data.gameType === 'preseason' ? ' — <b>försäsongen</b>, tills grundserien kommit igång' : ''}`
+    + `, minst ${state.minPlayerGp} GP.`;
 
   const cols = PLAYER_COLS.filter((c) => !c.tabs || c.tabs.includes(state.tab));
   renderPlayerTable($('#fwdTable'), rows.filter((r) => r.pos !== 'D'), cols);
