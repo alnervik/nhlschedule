@@ -13,7 +13,6 @@ uppdateras av ett Node-skript som GitHub Actions kör varje natt.
 
 ```bash
 node scripts/fetch-schedule.mjs     # skapar data/schedule.json och data/weeks.json
-node scripts/fetch-players.mjs      # skapar data/players.json
 npx serve .                         # eller python3 -m http.server
 ```
 
@@ -75,47 +74,14 @@ hela grundserien. Gult betyder att mer är bättre, blått att mer är sämre.
 | Röd kant på brickan | Lagets andra match på två dagar — vila och backupmålvakt är i spel |
 | 🥱 | Motståndaren spelade dagen innan och är alltså tröttkörd |
 
-## Scorers och Bangers
-
-Två flikar med streamingkandidater i stil med TJStats "Scorers/Bangers Targets":
-utespelare med låg roster% på lag som har många offnights i vald period,
-uppdelade på forwards och backar. Perioden och offnight-tröskeln är desamma som
-i schemafliken.
-
-| Filter | Standard |
-| --- | --- |
-| Roster% under | 50 % |
-| Lagets offnights minst | auto: periodens högsta antal − 1 |
-| Minst GP | 3 |
-| Visa | 25 per tabell |
-
-**Scorers** sorteras på Poäng/GP och visar mål, assist, skott, PPP och PP%
-(andel av lagets powerplaytid). **Bangers** sorteras på S+H+B/GP — skott, hits och
-blockeringar per match. Alla kolumner går att sortera på. Statistiken gäller
-nuvarande säsongs grundserie. Tills någon spelare har tre grundseriematcher
-används försäsongens statistik i stället (det står i flikens inforad), så
-listorna inte står tomma de första dagarna. Skiftet sker automatiskt nästa gång
-skriptet körs.
-
-**Roster% kommer från ESPN, inte Yahoo.** Yahoos API kräver en godkänd
-utvecklaransökan; ESPN:s fantasy-API är öppet. Siffrorna skiljer sig något mellan
-plattformarna men räcker gott för att sortera bort spelare som redan är ägda.
-Spelare som inte gick att matcha mot ESPN visas med "–" och filtreras inte bort.
-
 ## Data
 
 Från NHL:s öppna API (`api-web.nhle.com`), som är odokumenterat och kan ändras utan
 förvarning. Skriptet hämtar laglistan från `standings/now` och varje lags säsong från
 `club-schedule-season`, dedupar på match-id och sparar grundserie och slutspel.
 
-Spelarstatistiken hämtas av `scripts/fetch-players.mjs` från NHL:s stats-API
-(`api.nhle.com/stats/rest`: summary, realtime, powerplay), nuvarande lag från
-lagens trupper och roster% från ESPN. Spelare matchas mot ESPN på namn, med lag
-och position som skiljelinje när två heter likadant.
-
 ```
 data/schedule.json   genereras – redigera inte för hand
-data/players.json    genereras – redigera inte för hand
 data/weeks.json      dina fantasyveckor – redigeras för hand
 ```
 
@@ -126,6 +92,5 @@ index.html                          markup
 styles.css                          stilmall
 app.js                              all logik
 scripts/fetch-schedule.mjs          hämtar schemat
-scripts/fetch-players.mjs           hämtar spelarstatistik och roster%
 .github/workflows/update-schedule.yml
 ```

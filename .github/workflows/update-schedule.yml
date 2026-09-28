@@ -23,9 +23,6 @@ jobs:
       - name: Hämta schemat
         run: node scripts/fetch-schedule.mjs
 
-      - name: Hämta spelarstatistik och roster%
-        run: node scripts/fetch-players.mjs
-
       - name: Committa om något ändrats
         run: |
           git config user.name  "github-actions[bot]"
