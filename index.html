@@ -20,46 +20,74 @@
   <p class="stamp" id="stamp"></p>
 </header>
 
+<nav class="tabs" id="tabs" hidden>
+  <button class="tab is-active" data-tab="schedule">Schema</button>
+  <button class="tab" data-tab="scorers">Scorers</button>
+  <button class="tab" data-tab="bangers">Bangers</button>
+</nav>
+
 <main>
+
+<div class="toolbar" id="toolbar" hidden>
+  <label class="field field-wide">
+    <span>Period</span>
+    <select id="weekPick"></select>
+  </label>
+
+  <label class="field" data-custom hidden>
+    <span>Från</span>
+    <input type="date" id="fromDate">
+  </label>
+
+  <label class="field" data-custom hidden>
+    <span>Till</span>
+    <input type="date" id="toDate">
+  </label>
+
+  <label class="field">
+    <span>Offnight: högst</span>
+    <input type="number" id="offMax" min="1" max="16" step="1" value="6">
+    <em>matcher i ligan</em>
+  </label>
+
+  <label class="field" data-for="schedule">
+    <span>Minst</span>
+    <input type="number" id="minGp" min="0" max="7" step="1" value="0">
+    <em>matcher</em>
+  </label>
+
+  <label class="field" data-for="schedule">
+    <span>Division</span>
+    <select id="divPick"><option value="all">Alla</option></select>
+  </label>
+
+  <button class="ghost" id="clearPins" hidden>Avmarkera lag</button>
+
+  <label class="field" data-for="players" hidden>
+    <span>Roster% under</span>
+    <input type="number" id="maxOwn" min="1" max="100" step="5" value="50">
+  </label>
+
+  <label class="field" data-for="players" hidden>
+    <span>Lagets offnights minst</span>
+    <input type="number" id="minOff" min="0" max="7" step="1" placeholder="auto">
+  </label>
+
+  <label class="field" data-for="players" hidden>
+    <span>Minst</span>
+    <input type="number" id="minPlayerGp" min="1" max="82" step="1" value="3">
+    <em>GP</em>
+  </label>
+
+  <label class="field" data-for="players" hidden>
+    <span>Visa</span>
+    <input type="number" id="rowCount" min="5" max="200" step="5" value="25">
+    <em>per tabell</em>
+  </label>
+</div>
 
 <!-- ─────────────── Schemavy ─────────────── -->
 <section id="view-schedule">
-
-  <div class="toolbar">
-    <label class="field field-wide">
-      <span>Period</span>
-      <select id="weekPick"></select>
-    </label>
-
-    <label class="field" data-custom hidden>
-      <span>Från</span>
-      <input type="date" id="fromDate">
-    </label>
-
-    <label class="field" data-custom hidden>
-      <span>Till</span>
-      <input type="date" id="toDate">
-    </label>
-
-    <label class="field">
-      <span>Offnight: högst</span>
-      <input type="number" id="offMax" min="1" max="16" step="1" value="6">
-      <em>matcher i ligan</em>
-    </label>
-
-    <label class="field">
-      <span>Minst</span>
-      <input type="number" id="minGp" min="0" max="7" step="1" value="0">
-      <em>matcher</em>
-    </label>
-
-    <label class="field">
-      <span>Division</span>
-      <select id="divPick"><option value="all">Alla</option></select>
-    </label>
-
-    <button class="ghost" id="clearPins" hidden>Avmarkera lag</button>
-  </div>
 
   <p class="readout" id="readout"></p>
 
@@ -79,6 +107,35 @@
     <span class="key"><span class="swatch-scale warm"><i></i><i></i><i></i><i></i></span> mer är bättre</span>
     <span class="key"><span class="swatch-scale cool"><i></i><i></i><i></i><i></i></span> mer är sämre</span>
     <span class="key">Klicka på ett lag för att markera det.</span>
+  </p>
+</section>
+
+<!-- ─────────────── Spelarvy: scorers och bangers ─────────────── -->
+<section id="view-players" hidden>
+  <p class="readout" id="playerReadout"></p>
+
+  <div id="playerTables">
+    <h2 class="table-title">Forwards</h2>
+    <div class="grid-wrap players-wrap">
+      <table class="grid players" id="fwdTable"></table>
+    </div>
+
+    <h2 class="table-title">Backar</h2>
+    <div class="grid-wrap players-wrap">
+      <table class="grid players" id="defTable"></table>
+    </div>
+  </div>
+
+  <div class="empty" id="playersEmpty" hidden>
+    <h2>Ingen spelarstatistik än</h2>
+    <p id="playersEmptyText"></p>
+  </div>
+
+  <p class="legend">
+    <span class="key"><span class="swatch-scale warm"><i></i><i></i><i></i><i></i></span> högre är bättre</span>
+    <span class="key"><span class="swatch-scale cool"><i></i><i></i><i></i><i></i></span> roster%: lägre = mer tillgänglig</span>
+    <span class="key">Offnights = lagets matcher på offnights i vald period.</span>
+    <span class="key">Klicka på en rubrik för att sortera.</span>
   </p>
 </section>
 

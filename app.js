@@ -13,7 +13,20 @@ const state = {
   division: 'all',
   sort: { key: 'score', dir: -1 },
   pinned: new Set(),
+
+  tab: 'schedule',  // 'schedule', 'scorers' eller 'bangers'
+  players: null,    // { season, updated, rosterSource, players } från data/players.json
+  maxOwn: 50,
+  minOff: null,     // null = auto: högsta antalet offnights i perioden − 1
+  minPlayerGp: 3,
+  rowCount: 25,
+  playerSort: {
+    scorers: { key: 'ppg', dir: -1 },
+    bangers: { key: 'shb', dir: -1 },
+  },
 };
+
+const TABS = ['schedule', 'scorers', 'bangers'];
 
 /* Poängen väger ihop kolumnerna till ett tal: en match är värd 1, en match på
    en offnight lite mer, en match mot ett tröttkört lag lite mer, och en match
@@ -58,11 +71,15 @@ async function boot() {
     return;
   }
 
-  let file = null;
-  try {
-    const res = await fetch('data/weeks.json', { cache: 'no-cache' });
-    if (res.ok) file = await res.json();
-  } catch { /* valfri */ }
+  const optional = async (url) => {
+    try {
+      const res = await fetch(url, { cache: 'no-cache' });
+      if (res.ok) return await res.json();
+    } catch { /* valfri */ }
+    return null;
+  };
+  const [file, players] = await Promise.all([optional('data/weeks.json'), optional('data/players.json')]);
+  state.players = players;
 
   start(schedule, file?.weeks);
 }
@@ -85,8 +102,8 @@ function start(schedule, weeks) {
   state.pick = String(pickCurrentWeek());
   $('#weekPick').value = state.pick;
 
-  show('schedule');
-  render();
+  const fromHash = location.hash.slice(1);
+  setTab(TABS.includes(fromHash) ? fromHash : 'schedule');
 }
 
 function pickCurrentWeek() {
@@ -170,6 +187,11 @@ const STATS = [
 ];
 
 function render() {
+  if (state.tab === 'schedule') renderSchedule();
+  else renderPlayers();
+}
+
+function renderSchedule() {
   const t = buildTable();
 
   const visible = t.rows
@@ -181,7 +203,7 @@ function render() {
   renderHead(t);
   renderBody(t, visible);
   layoutFrozen();
-  $('#clearPins').hidden = state.pinned.size === 0;
+  $('#clearPins').hidden = state.pinned.size === 0 || state.tab !== 'schedule';
 }
 
 function compare(a, b) {
@@ -305,6 +327,163 @@ function layoutFrozen() {
   }
 }
 
+/* ── Spelarflikarna: scorers och bangers ────────────────────── */
+/* Streamingkandidater: spelare med låg roster% på lag som har många
+   offnights i vald period. Statistiken är per match för säsongen. */
+
+const per = (n) => (r) => (r.gp ? r[n] / r.gp : 0);
+const fmtToi = (sec) => {
+  const s = Math.round(sec);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+const fmtOwn = (v) => (v === null || v === undefined ? '–' : v > 0 && v < 0.5 ? '<1%' : `${Math.round(v)}%`);
+
+const PLAYER_COLS = [
+  { key: 'own',   label: 'Roster%', title: 'Andel ESPN-ligor där spelaren är ägd', fmt: fmtOwn, heat: 'own' },
+  { key: 'gp',    label: 'GP', title: 'Spelade matcher i säsongen', fmt: (v) => v },
+  { key: 'toiPg', label: 'TOI/GP', title: 'Istid per match', fmt: fmtToi, heat: 'warm' },
+  { key: 'gpg',   label: 'Mål/GP', fmt: (v) => v.toFixed(2), heat: 'warm' },
+  { key: 'apg',   label: 'Assist/GP', fmt: (v) => v.toFixed(2), heat: 'warm' },
+  { key: 'ppg',   label: 'Poäng/GP', fmt: (v) => v.toFixed(2), heat: 'warm', tabs: ['scorers'] },
+  { key: 'ppg',   label: 'Poäng/GP', fmt: (v) => v.toFixed(2), tabs: ['bangers'] },
+  { key: 'sogpg', label: 'Skott/GP', fmt: (v) => v.toFixed(2), heat: 'warm' },
+  { key: 'ppppg', label: 'PPP/GP', title: 'Powerplaypoäng per match', fmt: (v) => v.toFixed(2), heat: 'warm', tabs: ['scorers'] },
+  { key: 'ppPct', label: 'PP%', title: 'Andel av lagets powerplaytid som spelaren är på isen', fmt: (v) => `${Math.round(v * 100)}%`, heat: 'warm', tabs: ['scorers'] },
+  { key: 'hitpg', label: 'Hits/GP', fmt: (v) => v.toFixed(2), heat: 'warm', tabs: ['bangers'] },
+  { key: 'blkpg', label: 'Block/GP', fmt: (v) => v.toFixed(2), heat: 'warm', tabs: ['bangers'] },
+  { key: 'shb',   label: 'S+H+B/GP', title: 'Skott + hits + blockeringar per match', fmt: (v) => v.toFixed(2), heat: 'warm', tabs: ['bangers'] },
+  { key: 'games', label: 'Matcher', title: 'Lagets matcher i perioden', fmt: (v) => v, heat: 'warm', sep: true },
+  { key: 'off',   label: 'Offnights', title: 'Lagets matcher på offnights i perioden', fmt: (v) => v, heat: 'warm' },
+];
+
+function playerRows() {
+  const t = buildTable();
+  const byTeam = new Map(t.rows.map((r) => [r.team.abbrev, r]));
+  const maxOff = Math.max(0, ...t.rows.map((r) => r.off));
+  const minOff = state.minOff ?? Math.max(0, maxOff - 1);
+
+  const rows = (state.players?.players ?? []).map((p) => {
+    const team = byTeam.get(p.team);
+    return {
+      ...p,
+      games: team?.gp ?? 0,
+      off: team?.off ?? 0,
+      toiPg: per('toi')(p),
+      gpg: per('g')(p),
+      apg: per('a')(p),
+      ppg: per('p')(p),
+      sogpg: per('sog')(p),
+      ppppg: per('ppp')(p),
+      hitpg: per('hit')(p),
+      blkpg: per('blk')(p),
+      shb: p.gp ? (p.sog + p.hit + p.blk) / p.gp : 0,
+    };
+  }).filter((r) => r.games > 0
+    && r.off >= minOff
+    && r.gp >= state.minPlayerGp
+    && (r.own === null || r.own === undefined || r.own < state.maxOwn));
+
+  return { t, rows, minOff, maxOff };
+}
+
+function renderPlayers() {
+  const data = state.players;
+  const empty = !data?.players?.length;
+  $('#playerTables').hidden = empty;
+  $('#playersEmpty').hidden = !empty;
+
+  if (empty) {
+    $('#playerReadout').textContent = '';
+    $('#playersEmptyText').innerHTML = data
+      ? `Säsongen ${seasonLabel(data.season)} har inga spelade matcher än. Listorna fylls på när de första `
+        + 'matcherna är spelade och <code>data/players.json</code> har uppdaterats.'
+      : 'Kör <code>node scripts/fetch-players.mjs</code> för att skapa <code>data/players.json</code>.';
+    return;
+  }
+
+  const { t, rows, minOff } = playerRows();
+  const teams = [...new Set(rows.map((r) => r.team))].sort();
+  const source = data.rosterSource
+    ? `Roster% från ${data.rosterSource} (inte Yahoo, men följer den väl)`
+    : 'Roster% saknas i datan — ingen filtrering på ägande';
+  $('#playerReadout').innerHTML =
+    `<b>${t.label}</b> · ${fmtLong.format(toDate(t.start))} – ${fmtLong.format(toDate(t.end))} · `
+    + `lag med minst <b>${minOff}</b> offnights: ${teams.join(', ') || 'inga'}<br>`
+    + `${source}. Statistik från NHL, säsong ${seasonLabel(data.season)}, minst ${state.minPlayerGp} GP.`;
+
+  const cols = PLAYER_COLS.filter((c) => !c.tabs || c.tabs.includes(state.tab));
+  renderPlayerTable($('#fwdTable'), rows.filter((r) => r.pos !== 'D'), cols);
+  renderPlayerTable($('#defTable'), rows.filter((r) => r.pos === 'D'), cols);
+}
+
+function comparePlayers(a, b) {
+  const { key, dir } = state.playerSort[state.tab];
+  if (key === 'name') return a.name.localeCompare(b.name, 'sv') * dir;
+  const av = a[key] ?? Infinity;  // okänd roster% hamnar sist oavsett riktning
+  const bv = b[key] ?? Infinity;
+  if (av === bv) return b.off - a.off || a.name.localeCompare(b.name, 'sv');
+  if (av === Infinity) return 1;
+  if (bv === Infinity) return -1;
+  return (av - bv) * dir;
+}
+
+/* Roster%: lägre är bättre, och 0 % ska vara starkast — därför en egen skala. */
+function ownRamp(values) {
+  const known = values.filter((v) => v !== null && v !== undefined);
+  const max = Math.max(...known, 0);
+  const min = Math.min(...known, max);
+  return (v) => {
+    if (v === null || v === undefined) return 0;
+    if (max === min) return 4;
+    return 1 + Math.round(3 * (max - v) / (max - min));
+  };
+}
+
+function renderPlayerTable(table, all, cols) {
+  const rows = all.sort(comparePlayers).slice(0, state.rowCount);
+  const sort = state.playerSort[state.tab];
+  const arrow = (key) => (sort.key === key ? ` <span class="arrow">${sort.dir < 0 ? '▼' : '▲'}</span>` : '');
+
+  const scales = Object.fromEntries(cols.filter((c) => c.heat).map((c) => [
+    c.key,
+    c.heat === 'own' ? ownRamp(rows.map((r) => r.own)) : ramp(rows.map((r) => r[c.key])),
+  ]));
+
+  const head = `<thead><tr>`
+    + `<th class="col-player frozen sortable" data-sort="name">Spelare${arrow('name')}</th>`
+    + '<th>Lag</th><th>Pos</th>'
+    + cols.map((c) => `<th class="num sortable${c.sep ? ' sep' : ''}${c.key === sort.key ? ' is-sorted' : ''}" `
+      + `data-sort="${c.key}"${c.title ? ` title="${c.title}"` : ''}>${c.label}${arrow(c.key)}</th>`).join('')
+    + '</tr></thead>';
+
+  const body = rows.length
+    ? rows.map((r) => {
+      const cells = cols.map((c) => {
+        const v = r[c.key];
+        const level = scales[c.key]?.(v) ?? 0;
+        const heat = c.heat === 'own' ? 'cool' : 'warm';
+        const cls = `num${c.sep ? ' sep' : ''}${level ? ` ${heat}-${level}` : ''}${c.key === sort.key ? ' is-sorted' : ''}`;
+        return `<td class="${cls}">${c.fmt(v)}</td>`;
+      }).join('');
+      return `<tr><td class="col-player frozen">${r.name}</td>`
+        + `<td class="col-abv">${r.team}</td><td class="col-pos">${r.pos}</td>${cells}</tr>`;
+    }).join('')
+    : `<tr><td class="none" colspan="${cols.length + 3}">Inga spelare matchar filtren.</td></tr>`;
+
+  table.innerHTML = `${head}<tbody>${body}</tbody>`;
+
+  for (const th of table.querySelectorAll('.sortable')) {
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      const cur = state.playerSort[state.tab];
+      state.playerSort[state.tab] = cur.key === key
+        ? { key, dir: -cur.dir }
+        : { key, dir: key === 'name' || key === 'own' ? 1 : -1 };
+      render();
+    });
+  }
+}
+
 /* ── Väljare ────────────────────────────────────────────────── */
 function fillWeekPicker() {
   const opts = state.weeks.map((w, i) =>
@@ -389,9 +568,22 @@ async function fetchLive() {
 
 /* ── Vyer och händelser ─────────────────────────────────────── */
 function show(view) {
-  for (const name of ['schedule', 'empty']) {
+  for (const name of ['schedule', 'players', 'empty']) {
     $(`#view-${name}`).hidden = name !== view;
   }
+  $('#tabs').hidden = view === 'empty';
+  $('#toolbar').hidden = view === 'empty';
+}
+
+function setTab(tab) {
+  state.tab = tab;
+  const group = tab === 'schedule' ? 'schedule' : 'players';
+  for (const btn of document.querySelectorAll('.tab')) {
+    btn.classList.toggle('is-active', btn.dataset.tab === tab);
+  }
+  for (const el of document.querySelectorAll('[data-for]')) el.hidden = el.dataset.for !== group;
+  show(group);
+  render();
 }
 
 function wire() {
@@ -417,10 +609,32 @@ function wire() {
 
   $('#fetchLive').addEventListener('click', fetchLive);
 
+  for (const btn of document.querySelectorAll('.tab')) {
+    btn.addEventListener('click', () => {
+      history.replaceState(null, '', btn.dataset.tab === 'schedule' ? location.pathname : `#${btn.dataset.tab}`);
+      setTab(btn.dataset.tab);
+    });
+  }
+
+  window.addEventListener('hashchange', () => {
+    const tab = location.hash.slice(1);
+    if (state.schedule && TABS.includes(tab)) setTab(tab);
+  });
+
+  const num = (id, key, fallback) => $(id).addEventListener('change', (e) => {
+    const v = e.target.value === '' ? fallback : Number(e.target.value);
+    state[key] = Number.isFinite(v) ? v : fallback;
+    render();
+  });
+  num('#maxOwn', 'maxOwn', 50);
+  num('#minOff', 'minOff', null);
+  num('#minPlayerGp', 'minPlayerGp', 3);
+  num('#rowCount', 'rowCount', 25);
+
   let resizing;
   window.addEventListener('resize', () => {
     clearTimeout(resizing);
-    resizing = setTimeout(layoutFrozen, 100);
+    resizing = setTimeout(() => { if (state.tab === 'schedule') layoutFrozen(); }, 100);
   });
 }
 
